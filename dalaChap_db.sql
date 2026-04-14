@@ -1,8 +1,7 @@
 -- =============================================
 -- Database: dalachap_db
 -- Description: DalaChap Dynamic Route Transit System
--- Author: DalaChap Team
--- Date: April 2026
+-- WITHOUT STORED PROCEDURES (PHP will handle logic)
 -- =============================================
 
 -- Create database (run this first)
@@ -10,8 +9,7 @@ CREATE DATABASE IF NOT EXISTS dalachap_db;
 USE dalachap_db;
 
 -- =============================================
--- 1. USERS TABLE (for all system users)
--- Stores authentication and basic user info
+-- 1. USERS TABLE
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS users (
@@ -32,7 +30,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- =============================================
 -- 2. ROUTES TABLE
--- Stores registered daladala routes
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS routes (
@@ -54,7 +51,6 @@ CREATE TABLE IF NOT EXISTS routes (
 
 -- =============================================
 -- 3. ROUTE_STOPS TABLE
--- Stores all stops along each route
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS route_stops (
@@ -70,27 +66,7 @@ CREATE TABLE IF NOT EXISTS route_stops (
 );
 
 -- =============================================
--- 4. DALADALA_VEHICLES TABLE
--- Stores vehicle information
--- =============================================
-
-CREATE TABLE IF NOT EXISTS daladala_vehicles (
-    vehicle_id INT(11) AUTO_INCREMENT PRIMARY KEY,
-    registration_number VARCHAR(20) UNIQUE NOT NULL,
-    owner_name VARCHAR(100) NOT NULL,
-    owner_phone VARCHAR(15) NOT NULL,
-    capacity INT(11) DEFAULT 30,
-    association_id INT(11) NULL,
-    status ENUM('active', 'inactive', 'maintenance', 'suspended') DEFAULT 'active',
-    last_maintenance_date DATE NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_registration (registration_number),
-    INDEX idx_status (status)
-);
-
--- =============================================
--- 5. ASSOCIATIONS TABLE
--- Daladala organizations/associations
+-- 4. ASSOCIATIONS TABLE
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS associations (
@@ -106,14 +82,27 @@ CREATE TABLE IF NOT EXISTS associations (
     INDEX idx_name (association_name)
 );
 
--- Add foreign key to daladala_vehicles
-ALTER TABLE daladala_vehicles 
-ADD CONSTRAINT fk_vehicle_association 
-FOREIGN KEY (association_id) REFERENCES associations(association_id) ON DELETE SET NULL;
+-- =============================================
+-- 5. DALADALA_VEHICLES TABLE
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS daladala_vehicles (
+    vehicle_id INT(11) AUTO_INCREMENT PRIMARY KEY,
+    registration_number VARCHAR(20) UNIQUE NOT NULL,
+    owner_name VARCHAR(100) NOT NULL,
+    owner_phone VARCHAR(15) NOT NULL,
+    capacity INT(11) DEFAULT 30,
+    association_id INT(11) NULL,
+    status ENUM('active', 'inactive', 'maintenance', 'suspended') DEFAULT 'active',
+    last_maintenance_date DATE NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (association_id) REFERENCES associations(association_id) ON DELETE SET NULL,
+    INDEX idx_registration (registration_number),
+    INDEX idx_status (status)
+);
 
 -- =============================================
 -- 6. DRIVER_VEHICLE ASSIGNMENT TABLE
--- Tracks which driver drives which vehicle
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS driver_assignments (
@@ -133,7 +122,6 @@ CREATE TABLE IF NOT EXISTS driver_assignments (
 
 -- =============================================
 -- 7. TRIPS TABLE
--- Records each trip made by a daladala
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS trips (
@@ -161,7 +149,6 @@ CREATE TABLE IF NOT EXISTS trips (
 
 -- =============================================
 -- 8. GPS_LOCATIONS TABLE
--- Real-time location tracking for vehicles
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS gps_locations (
@@ -181,7 +168,6 @@ CREATE TABLE IF NOT EXISTS gps_locations (
 
 -- =============================================
 -- 9. DEMAND_REPORTS TABLE
--- Passenger reports of congestion/demand
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS demand_reports (
@@ -204,7 +190,6 @@ CREATE TABLE IF NOT EXISTS demand_reports (
 
 -- =============================================
 -- 10. ROUTE_AUTHORIZATIONS TABLE
--- Temporary route adjustments approved by traffic officers
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS route_authorizations (
@@ -228,7 +213,6 @@ CREATE TABLE IF NOT EXISTS route_authorizations (
 
 -- =============================================
 -- 11. NOTIFICATIONS TABLE
--- System notifications for all users
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -247,7 +231,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- =============================================
 -- 12. FEEDBACK TABLE
--- Passenger and driver feedback
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS feedback (
@@ -266,7 +249,6 @@ CREATE TABLE IF NOT EXISTS feedback (
 
 -- =============================================
 -- 13. SYSTEM_LOGS TABLE
--- Track all system activities for audit
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS system_logs (
@@ -284,14 +266,13 @@ CREATE TABLE IF NOT EXISTS system_logs (
 
 -- =============================================
 -- INSERT SAMPLE DATA
--- For testing and development
 -- =============================================
 
--- Insert sample admin user (password: password123)
--- Note: In production, use proper password hashing with password_hash()
+-- Insert sample admin user
+-- Note: Password is 'password123' (will be hashed properly in PHP)
 INSERT INTO users (full_name, email, phone_number, password_hash, user_role, is_active) VALUES
-('System Admin', 'admin@dalachap.com', '0712345678', '$2y$10$YourHashHere', 'admin', 1),
-('John Traffic', 'traffic@dalachap.com', '0723456789', '$2y$10$YourHashHere', 'traffic_officer', 1);
+('System Admin', 'admin@dalachap.com', '0712345678', 'temp_hash_use_php_password_hash()', 'admin', 1),
+('John Traffic', 'traffic@dalachap.com', '0723456789', 'temp_hash_use_php_password_hash()', 'traffic_officer', 1);
 
 -- Insert sample associations
 INSERT INTO associations (association_name, registration_number, phone_number, email, chairman_name) VALUES
@@ -305,7 +286,7 @@ INSERT INTO routes (route_code, route_name, starting_point, ending_point, distan
 ('R003', 'Kimara - Mwenge', 'Kimara', 'Mwenge', 8.5, 25, 500, 'active'),
 ('R004', 'Mbagala - Kariakoo', 'Mbagala', 'Kariakoo', 18.0, 55, 800, 'active');
 
--- Insert route stops for route R001 (Ubungo - Kivukoni)
+-- Insert route stops for route R001
 INSERT INTO route_stops (route_id, stop_name, stop_order, estimated_arrival_minutes) VALUES
 (1, 'Ubungo Terminal', 1, 0),
 (1, 'Ubungo Mwenge', 2, 10),
@@ -320,57 +301,6 @@ INSERT INTO daladala_vehicles (registration_number, owner_name, owner_phone, cap
 ('T123ABC', 'Hamza Mohamed', '0756789012', 30, 1, 'active'),
 ('T456DEF', 'Aisha Salim', '0767890123', 32, 1, 'active'),
 ('T789GHI', 'Juma Hassan', '0778901234', 30, 2, 'active');
-
--- =============================================
--- STORED PROCEDURES
--- For common operations
--- =============================================
-
-DELIMITER //
-
--- Procedure: Get current location of all active vehicles
-CREATE PROCEDURE GetActiveVehicleLocations()
-BEGIN
-    SELECT 
-        v.vehicle_id,
-        v.registration_number,
-        g.latitude,
-        g.longitude,
-        g.speed_kmh,
-        g.recorded_at,
-        r.route_name
-    FROM daladala_vehicles v
-    INNER JOIN gps_locations g ON v.vehicle_id = g.vehicle_id
-    LEFT JOIN trips t ON v.vehicle_id = t.vehicle_id AND t.trip_status = 'ongoing'
-    LEFT JOIN routes r ON t.route_id = r.route_id
-    WHERE v.status = 'active'
-    AND g.recorded_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-    ORDER BY g.recorded_at DESC;
-END //
-
--- Procedure: Report route congestion
-CREATE PROCEDURE ReportRouteCongestion(
-    IN p_route_id INT,
-    IN p_stop_id INT,
-    IN p_waiting_count INT,
-    IN p_reported_by INT
-)
-BEGIN
-    INSERT INTO demand_reports (route_id, stop_id, passenger_waiting_count, report_type, reported_by)
-    VALUES (p_route_id, p_stop_id, p_waiting_count, 'high_demand', p_reported_by);
-    
-    -- Notify traffic officers about congestion
-    INSERT INTO notifications (user_id, title, message, notification_type)
-    SELECT 
-        user_id,
-        'Route Congestion Alert',
-        CONCAT('High demand reported on route ', (SELECT route_name FROM routes WHERE route_id = p_route_id)),
-        'demand_alert'
-    FROM users 
-    WHERE user_role = 'traffic_officer';
-END //
-
-DELIMITER ;
 
 -- =============================================
 -- VIEWS FOR COMMON QUERIES
@@ -405,9 +335,27 @@ LEFT JOIN demand_reports d ON r.route_id = d.route_id
 WHERE d.reported_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
 GROUP BY r.route_id, r.route_name;
 
+-- View: Current vehicle locations (last 5 minutes)
+CREATE OR REPLACE VIEW vw_current_vehicle_locations AS
+SELECT 
+    v.vehicle_id,
+    v.registration_number,
+    g.latitude,
+    g.longitude,
+    g.speed_kmh,
+    g.recorded_at,
+    r.route_name,
+    t.trip_status
+FROM daladala_vehicles v
+INNER JOIN gps_locations g ON v.vehicle_id = g.vehicle_id
+LEFT JOIN trips t ON v.vehicle_id = t.vehicle_id AND t.trip_status = 'ongoing'
+LEFT JOIN routes r ON t.route_id = r.route_id
+WHERE v.status = 'active'
+AND g.recorded_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+ORDER BY g.recorded_at DESC;
+
 -- =============================================
 -- INDEXES FOR PERFORMANCE
--- Already added inline, but here are additional
 -- =============================================
 
 CREATE INDEX idx_gps_locations_latest ON gps_locations(vehicle_id, recorded_at DESC);
