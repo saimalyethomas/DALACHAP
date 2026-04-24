@@ -21,8 +21,8 @@ $user = requireRole($db, ['association_leader', 'admin']);
 $association = $database->fetchOne(
     "SELECT association_id, association_name 
      FROM associations 
-     WHERE association_id = (SELECT association_id FROM users WHERE user_id = ? LIMIT 1)
-        OR association_id IN (SELECT association_id FROM daladala_vehicles WHERE owner_phone = ? LIMIT 1)",
+     WHERE association_id IN (SELECT association_id FROM users WHERE user_id = ?)
+        OR association_id IN (SELECT association_id FROM daladala_vehicles WHERE owner_phone = ?)",
     [$user['user_id'], $user['phone_number']], "is"
 );
 

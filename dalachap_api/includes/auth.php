@@ -78,7 +78,7 @@ function authenticate($db_connection) {
     }
     
     // Verify user exists in database
-    $sql = "SELECT user_id, full_name, email, user_role, is_active FROM users WHERE user_id = ? AND is_active = 1";
+    $sql = "SELECT user_id, full_name, email, user_role, phone_number, is_active FROM users WHERE user_id = ? AND is_active = 1";
     $stmt = $db_connection->prepare($sql);
     $stmt->bind_param("i", $payload['user_id']);
     $stmt->execute();
