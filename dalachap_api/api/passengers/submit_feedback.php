@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Authenticate (passengers only)
-$user = requireRole($conn, ['passenger', 'driver', 'admin']);
+$user = requireRole($db, ['passenger', 'driver', 'admin']);
 
 $input = getJsonInput();
 

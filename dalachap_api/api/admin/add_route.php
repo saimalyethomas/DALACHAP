@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Admin only
-$user = requireRole($conn, ['admin']);
+$user = requireRole($db, ['admin']);
 
 $input = getJsonInput();
 

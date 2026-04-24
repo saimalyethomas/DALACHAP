@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Authenticate (passenger or officer can report)
-$user = requireRole($conn, ['passenger', 'traffic_officer', 'driver', 'admin']);
+$user = requireRole($db, ['passenger', 'traffic_officer', 'driver', 'admin']);
 
 // Get JSON input
 $input = getJsonInput();

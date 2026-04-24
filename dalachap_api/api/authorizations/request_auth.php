@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Authenticate (driver or association leader)
-$user = requireRole($conn, ['driver', 'association_leader', 'admin']);
+$user = requireRole($db, ['driver', 'association_leader', 'admin']);
 
 // Get JSON input
 $input = getJsonInput();

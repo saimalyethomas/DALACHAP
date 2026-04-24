@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Authenticate (driver or admin can update location)
-$user = requireRole($conn, ['driver', 'admin', 'association_leader']);
+$user = requireRole($db, ['driver', 'admin', 'association_leader']);
 
 // Get JSON input
 $input = getJsonInput();

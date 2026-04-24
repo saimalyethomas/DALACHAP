@@ -9,7 +9,7 @@ class Database {
     private $username = "root";
     private $password = "";
     private $database = "dalachap_db";
-    private $connection;
+    private $dbection;
 
     public function __construct() {
         $this->connect();

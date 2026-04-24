@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Only traffic officers and admin can revoke
-$user = requireRole($conn, ['traffic_officer', 'admin']);
+$user = requireRole($db, ['traffic_officer', 'admin']);
 
 // Get JSON input
 $input = getJsonInput();

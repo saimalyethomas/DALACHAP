@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Authenticate
-$user = authenticate($conn);
+$user = authenticate($db);
 
 // Get JSON input
 $input = getJsonInput();

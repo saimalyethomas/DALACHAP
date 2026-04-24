@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Authenticate as traffic officer or admin
-$user = requireRole($conn, ['traffic_officer', 'admin']);
+$user = requireRole($db, ['traffic_officer', 'admin']);
 
 // Get dashboard statistics
 

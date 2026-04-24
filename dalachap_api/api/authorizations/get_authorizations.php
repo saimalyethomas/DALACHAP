@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Authenticate
-$user = authenticate($conn);
+$user = authenticate($db);
 
 // Build query
 $sql = "SELECT a.authorization_id, a.vehicle_id, a.original_route_id, a.temporary_route_id,

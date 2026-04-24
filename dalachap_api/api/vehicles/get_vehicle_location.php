@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Authenticate user
-$user = authenticate($conn);
+$user = authenticate($db);
 
 // Validate vehicle_id
 if (!isset($_GET['vehicle_id']) || empty($_GET['vehicle_id'])) {

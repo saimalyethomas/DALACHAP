@@ -32,7 +32,7 @@ $password = $input['password']; // Don't sanitize password before verification
 $sql = "SELECT user_id, full_name, email, phone_number, password_hash, user_role, is_active 
         FROM users 
         WHERE email = ?";
-$stmt = $conn->prepare($sql);
+$stmt = $db->prepare($sql);
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -64,7 +64,7 @@ $token = generateToken($user['user_id'], $user['email'], $user['user_role']);
 $log_sql = "INSERT INTO system_logs (user_id, action, description, ip_address) 
             VALUES (?, 'LOGIN', 'User logged in', ?)";
 $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-$log_stmt = $conn->prepare($log_sql);
+$log_stmt = $db->prepare($log_sql);
 $log_stmt->bind_param("is", $user['user_id'], $ip);
 $log_stmt->execute();
 

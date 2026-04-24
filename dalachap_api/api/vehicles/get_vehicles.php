@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Authenticate user
-$user = authenticate($conn);
+$user = authenticate($db);
 
 // Build query with filters
 $sql = "SELECT v.vehicle_id, v.registration_number, v.owner_name, v.owner_phone, 

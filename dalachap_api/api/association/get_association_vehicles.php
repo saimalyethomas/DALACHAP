@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Association leader only
-$user = requireRole($conn, ['association_leader', 'admin']);
+$user = requireRole($db, ['association_leader', 'admin']);
 
 // Get the association ID for this user
 $association = $database->fetchOne(
