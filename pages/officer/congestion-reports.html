@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Congestion Reports</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="office-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="congestion-reports.html" class="sidebar-nav-item active"><i>🚨</i> <span>Congestion Reports</span></a>
+            <a href="authorizations.html" class="sidebar-nav-item"><i>📋</i> <span>Authorizations</span></a>
+            <a href="route-monitor.html" class="sidebar-nav-item"><i>🛣️</i> <span>Route Monitor</span></a>
+            <a href="vehicle-tracking.html" class="sidebar-nav-item"><i>📍</i> <span>Vehicle Tracking</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">O</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Congestion Reports</h1>
+
+            <!-- Statistics Summary -->
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-info"><h3 id="active-reports">--</h3><p>Active Reports</p></div><div class="stat-icon">🚨</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="resolved-today">--</h3><p>Resolved Today</p></div><div class="stat-icon">✅</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="high-demand-routes">--</h3><p>High Demand Routes</p></div><div class="stat-icon">🔥</div></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="status-filter" onchange="loadReports()" style="padding: 8px; border-radius: 8px;">
+                        <option value="active">Active</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="all">All</option>
+                    </select>
+                    <select id="route-filter" onchange="loadReports()" style="padding: 8px; border-radius: 8px;">
+                        <option value="">All Routes</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadReports()">Refresh</button>
+                </div>
+            </div>
+
+            <!-- Reports List -->
+            <div id="reports-container">
+                <div class="loading-spinner">Loading reports...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resolve Report Modal -->
+    <div id="resolve-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Resolve Congestion Report</h3>
+                <button class="modal-close" onclick="closeResolveModal()">&times;</button>
+            </div>
+            <input type="hidden" id="resolve-report-id">
+            <div class="form-group"><label>Resolution Notes</label><textarea id="resolution-notes" rows="3" placeholder="What action was taken?"></textarea></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn" onclick="closeResolveModal()">Cancel</button>
+                <button class="btn btn-success" id="confirm-resolve-btn">Mark Resolved</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['traffic_officer', 'admin'])) return;
+            initCommon();
+            loadRoutesForFilter();
+            loadReports();
+            loadStatistics();
+        });
+
+        async function loadRoutesForFilter() {
+            const result = await apiRequest(API_ENDPOINTS.getRoutes);
+            if (result.success && result.data.routes) {
+                const select = document.getElementById('route-filter');
+                for (const route of result.data.routes) {
+                    const option = document.createElement('option');
+                    option.value = route.route_id;
+                    option.textContent = route.route_name;
+                    select.appendChild(option);
+                }
+            }
+        }
+
+        async function loadStatistics() {
+            const result = await apiRequest(API_ENDPOINTS.getCongestedRoutes + '?stats=true');
+            if (result.success && result.data.stats) {
+                document.getElementById('active-reports').textContent = result.data.stats.active_reports || 0;
+                document.getElementById('resolved-today').textContent = result.data.stats.resolved_today || 0;
+                document.getElementById('high-demand-routes').textContent = result.data.stats.high_demand_routes || 0;
+            }
+        }
+
+        async function loadReports() {
+            const status = document.getElementById('status-filter').value;
+            const routeId = document.getElementById('route-filter').value;
+            
+            let url = API_ENDPOINTS.getCongestedReports;
+            if (status !== 'all') url += `?status=${status}`;
+            if (routeId) url += `${status !== 'all' ? '&' : '?'}route_id=${routeId}`;
+            
+            const result = await apiRequest(url);
+            
+            if (result.success && result.data.reports) {
+                let html = '';
+                for (const report of result.data.reports) {
+                    const statusClass = report.status === 'active' ? 'badge-danger' : 'badge-success';
+                    const borderStyle = report.status === 'active' ? 'border-left: 4px solid #e74c3c;' : 'border-left: 4px solid #28a745;';
+                    
+                    html += `
+                        <div class="card" style="${borderStyle}">
+                            <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap;">
+                                <div>
+                                    <h4>🚨 ${report.route_name}</h4>
+                                    <p><strong>Location:</strong> ${report.stop_name || 'Unknown stop'}</p>
+                                    <p><strong>Waiting Passengers:</strong> <span style="font-size: 20px; font-weight: bold;">${report.waiting_count}</span></p>
+                                    <p><strong>Reported by:</strong> ${report.reported_by_name || 'Passenger'}</p>
+                                    <p><strong>Time:</strong> ${formatDate(report.reported_at)} (${timeAgo(report.reported_at)})</p>
+                                    <p><strong>Status:</strong> <span class="badge ${statusClass}">${report.status || 'Active'}</span></p>
+                                </div>
+                                <div>
+                                    ${report.status === 'active' ? `<button class="btn btn-success" onclick="openResolveModal(${report.report_id})">✅ Mark Resolved</button>` : ''}
+                                    <button class="btn btn-sm" onclick="viewOnMap(${report.route_id}, ${report.latitude || 0}, ${report.longitude || 0})">📍 View on Map</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('reports-container').innerHTML = html || '<div class="card">No congestion reports found</div>';
+            } else {
+                document.getElementById('reports-container').innerHTML = '<div class="card">No congestion reports found</div>';
+            }
+        }
+
+        function openResolveModal(reportId) {
+            document.getElementById('resolve-report-id').value = reportId;
+            document.getElementById('resolution-notes').value = '';
+            document.getElementById('resolve-modal').style.display = 'flex';
+        }
+
+        document.getElementById('confirm-resolve-btn').addEventListener('click', async () => {
+            const reportId = document.getElementById('resolve-report-id').value;
+            const notes = document.getElementById('resolution-notes').value;
+            
+            const result = await apiRequest(API_ENDPOINTS.resolveCongestion, 'POST', { 
+                report_id: reportId, 
+                resolution_notes: notes 
+            });
+            
+            if (result.success) {
+                showToast('Report marked as resolved', 'success');
+                closeResolveModal();
+                loadReports();
+                loadStatistics();
+            } else {
+                showToast(result.message, 'error');
+            }
+        });
+
+        function viewOnMap(routeId, lat, lng) {
+            if (lat && lng) {
+                window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+            } else {
+                window.location.href = `route-monitor.html?route_id=${routeId}`;
+            }
+        }
+
+        function closeResolveModal() {
+            document.getElementById('resolve-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

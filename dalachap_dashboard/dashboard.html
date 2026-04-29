@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Dashboard Router</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .loader-container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loader-text {
+            color: #333;
+            font-size: 16px;
+        }
+        .error-message {
+            color: #e74c3c;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader-container">
+        <div class="spinner"></div>
+        <div class="loader-text">Redirecting to your dashboard...</div>
+        <div class="error-message" id="error-message">
+            Unable to redirect. Please <a href="index.html">click here to login</a>.
+        </div>
+    </div>
+
+    <script src="assets/js/config.js?v=2"></script>
+    <script src="assets/js/auth.js?v=2"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = getCurrentUser();
+            const token = getToken();
+            
+            if (!user || !token) {
+                document.getElementById('error-message').style.display = 'block';
+                setTimeout(function() {
+                    window.location.href = 'index.html';
+                }, 3000);
+                return;
+            }
+            
+            // Map roles to dashboard URLs
+            const dashboardMap = {
+                'admin': APP_BASE_URL + 'pages/admin/admin-dashboard.html',
+                'traffic_officer': APP_BASE_URL + 'pages/officer/office-dashbord.html',
+                'association_leader': APP_BASE_URL + 'pages/association/association-dashbord.html',
+                'driver': APP_BASE_URL + 'pages/driver/driver-dashboard.html',
+                'passenger': APP_BASE_URL + 'pages/passenger/passenger-dashboard.html'
+            };
+            
+            const defaultDashboard = APP_BASE_URL + 'dalachap_dashboard/index.html';
+            const dashboardUrl = dashboardMap[user.role] || defaultDashboard;
+            
+            // Verify token is still valid with a quick API call
+            fetch(API_ENDPOINTS.getRoutes + '?limit=1', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = dashboardUrl;
+                } else {
+                    // Token invalid, logout
+                    localStorage.removeItem(APP_CONFIG.tokenKey);
+                    localStorage.removeItem(APP_CONFIG.userKey);
+                    document.getElementById('error-message').style.display = 'block';
+                    setTimeout(function() {
+                        window.location.href = 'index.html';
+                    }, 3000);
+                }
+            })
+            .catch(function() {
+                // Network error but try redirect anyway
+                window.location.href = dashboardUrl;
+            });
+        });
+    </script>
+</body>
+</html>

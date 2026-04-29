@@ -29,33 +29,28 @@ $email = sanitizeInput($input['email']);
 $password = $input['password']; // Don't sanitize password before verification
 
 // Check if email exists
-$sql = "SELECT user_id, full_name, email, phone_number, password_hash, user_role, is_active 
-        FROM users 
-        WHERE email = ?";
-$stmt = $db->prepare($sql);
-$stmt->bind_param("s", $email);
-$stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
+    $sql = "SELECT user_id, full_name, email, phone_number, password_hash, user_role, is_active 
+            FROM users 
+            WHERE email = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
 
-if (!$user) {
-    sendErrorResponse("Invalid email or password", 401);
-}
+    if (!$user) {
+        sendErrorResponse("Invalid email or password", 401);
+    }
 
-// Check if account is active
-if ($user['is_active'] != 1) {
-    sendErrorResponse("Your account is deactivated. Please contact administrator.", 403);
-}
+    // Check if account is active
+    if ($user['is_active'] != 1) {
+        sendErrorResponse("Your account is deactivated. Please contact administrator.", 403);
+    }
 
-// Verify password (using password_verify for hashed passwords)
-// For development with plain text, use direct comparison
-// In production, always use password_hash() and password_verify()
-
-// TEMPORARY: For development with the sample data
-// Replace this with proper password_verify in production
-if ($password !== 'password123' && !password_verify($password, $user['password_hash'])) {
-    sendErrorResponse("Invalid email or password", 401);
-}
+    // Verify password (using password_verify for hashed passwords)
+    if (!password_verify($password, $user['password_hash'])) {
+        sendErrorResponse("Invalid email or password", 401);
+    }
 
 // Generate token
 $token = generateToken($user['user_id'], $user['email'], $user['user_role']);

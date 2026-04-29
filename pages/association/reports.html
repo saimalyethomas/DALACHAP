@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Reports</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+    <style>
+        .report-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .report-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .chart-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+            height: 200px;
+            margin-top: 20px;
+        }
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 8px 8px 0 0;
+            transition: height 0.3s;
+            min-width: 30px;
+        }
+        .bar-label {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="association-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="my-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>My Vehicles</span></a>
+            <a href="drivers.html" class="sidebar-nav-item"><i>👨‍✈️</i> <span>Drivers</span></a>
+            <a href="register-driver.html" class="sidebar-nav-item"><i>➕</i> <span>Register Driver</span></a>
+            <a href="trip-history.html" class="sidebar-nav-item"><i>📅</i> <span>Trip History</span></a>
+            <a href="reports.html" class="sidebar-nav-item active"><i>📊</i> <span>Reports</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Performance Reports</h1>
+
+            <!-- Date Range Selection -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <label>Report Period:</label>
+                    <select id="period-select" onchange="changePeriod()" style="padding: 8px; border-radius: 8px;">
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="quarter">This Quarter</option>
+                        <option value="year">This Year</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                    <div id="custom-range" style="display: none;">
+                        <input type="date" id="date-from">
+                        <input type="date" id="date-to">
+                        <button class="btn btn-sm btn-primary" onclick="loadCustomReport()">Apply</button>
+                    </div>
+                    <button class="btn" onclick="downloadReport()">📥 Download PDF Report</button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="stats-grid" id="summary-cards">
+                <div class="stat-card"><div class="stat-info"><h3 id="total-trips">--</h3><p>Total Trips</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="total-passengers">--</h3><p>Total Passengers</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="total-earnings">--</h3><p>Total Earnings</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="avg-occupancy">--</h3><p>Avg Occupancy</p></div></div>
+            </div>
+
+            <!-- Daily Trips Chart -->
+            <div class="card">
+                <h3>📊 Daily Trips</h3>
+                <div id="daily-trips-chart" class="chart-bars">
+                    <div class="loading-spinner">Loading chart...</div>
+                </div>
+            </div>
+
+            <!-- Top Performing Vehicles -->
+            <div class="card">
+                <h3>🏆 Top Performing Vehicles</h3>
+                <div id="top-vehicles"></div>
+            </div>
+
+            <!-- Route Performance -->
+            <div class="card">
+                <h3>🛣️ Route Performance</h3>
+                <div id="route-performance"></div>
+            </div>
+
+            <!-- Driver Performance -->
+            <div class="card">
+                <h3>👨‍✈️ Driver Performance</h3>
+                <div id="driver-performance"></div>
+            </div>
+
+            <!-- Hourly Demand -->
+            <div class="card">
+                <h3>⏰ Hourly Demand Pattern</h3>
+                <div id="hourly-demand"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/association.js?v=2"></script>
+    
+    <script>
+        let currentPeriod = 'month';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['association_leader', 'admin'])) return;
+            initCommon();
+            loadReport();
+        });
+
+        function changePeriod() {
+            currentPeriod = document.getElementById('period-select').value;
+            
+            const customRange = document.getElementById('custom-range');
+            customRange.style.display = currentPeriod === 'custom' ? 'flex' : 'none';
+            
+            if (currentPeriod !== 'custom') {
+                loadReport();
+            }
+        }
+
+        async function loadCustomReport() {
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            if (!dateFrom || !dateTo) {
+                showToast('Please select both start and end dates', 'error');
+                return;
+            }
+            
+            await loadReport(dateFrom, dateTo);
+        }
+
+        async function loadReport(dateFrom = null, dateTo = null) {
+            let url = API_ENDPOINTS.getPerformanceReport + `?period=${currentPeriod}`;
+            if (dateFrom) url += `&date_from=${dateFrom}`;
+            if (dateTo) url += `&date_to=${dateTo}`;
+            
+            const result = await apiRequest(url);
+            
+            if (result.success && result.data) {
+                // Update summary
+                document.getElementById('total-trips').textContent = result.data.summary?.total_trips || 0;
+                document.getElementById('total-passengers').textContent = result.data.summary?.total_passengers || 0;
+                document.getElementById('total-earnings').textContent = `TSh ${(result.data.summary?.total_earnings || 0).toLocaleString()}`;
+                document.getElementById('avg-occupancy').textContent = `${result.data.summary?.avg_occupancy || 0}%`;
+                
+                // Daily trips chart
+                renderDailyTripsChart(result.data.daily_trips || []);
+                
+                // Top vehicles
+                renderTopVehicles(result.data.top_vehicles || []);
+                
+                // Route performance
+                renderRoutePerformance(result.data.route_performance || []);
+                
+                // Driver performance
+                renderDriverPerformance(result.data.driver_performance || []);
+                
+                // Hourly demand
+                renderHourlyDemand(result.data.hourly_demand || []);
+            }
+        }
+
+        function renderDailyTripsChart(data) {
+            const container = document.getElementById('daily-trips-chart');
+            if (!data.length) {
+                container.innerHTML = '<div>No data available for this period</div>';
+                return;
+            }
+            
+            const maxTrips = Math.max(...data.map(d => d.count), 1);
+            let html = '<div class="chart-bars">';
+            
+            for (const day of data) {
+                const height = (day.count / maxTrips) * 150;
+                html += `
+                    <div style="flex: 1; text-align: center;">
+                        <div style="height: ${height}px; background: linear-gradient(to top, #667eea, #764ba2); border-radius: 8px 8px 0 0;"></div>
+                        <div class="bar-label">${day.day_short || day.date}</div>
+                        <div style="font-size: 11px;">${day.count}</div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderTopVehicles(vehicles) {
+            if (!vehicles.length) {
+                document.getElementById('top-vehicles').innerHTML = '<div>No data available</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr><th>Vehicle</th><th>Trips</th><th>Passengers</th><th>Earnings</th><th>Avg Occupancy</th></tr></thead><tbody>';
+            
+            for (const v of vehicles) {
+                html += `
+                    <tr>
+                        <td><strong>${v.registration_number}</strong></td>
+                        <td>${v.total_trips}</td>
+                        <td>${v.total_passengers}</td>
+                        <td>TSh ${(v.total_earnings || 0).toLocaleString()}</td>
+                        <td>${v.avg_occupancy || 0}%</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('top-vehicles').innerHTML = html;
+        }
+
+        function renderRoutePerformance(routes) {
+            if (!routes.length) {
+                document.getElementById('route-performance').innerHTML = '<div>No data available</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr><th>Route</th><th>Trips</th><th>Passengers</th><th>Avg Wait Time</th><th>Demand Level</th></tr></thead><tbody>';
+            
+            for (const r of routes) {
+                let demandBadge = '';
+                if (r.demand_level === 'high') demandBadge = '<span class="badge badge-danger">High</span>';
+                else if (r.demand_level === 'medium') demandBadge = '<span class="badge badge-warning">Medium</span>';
+                else demandBadge = '<span class="badge badge-success">Low</span>';
+                
+                html += `
+                    <tr>
+                        <td>${r.route_name}</td>
+                        <td>${r.total_trips}</td>
+                        <td>${r.total_passengers}</td>
+                        <td>${r.avg_wait_time || '-'} min</td>
+                        <td>${demandBadge}</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('route-performance').innerHTML = html;
+        }
+
+        function renderDriverPerformance(drivers) {
+            if (!drivers.length) {
+                document.getElementById('driver-performance').innerHTML = '<div>No data available</div>';
+                return;
+            }
+            
+            let html = '<table class="data-table"><thead><tr><th>Driver</th><th>Trips</th><th>Passengers</th><th>Hours</th><th>Avg Rating</th></tr></thead><tbody>';
+            
+            for (const d of drivers) {
+                html += `
+                    <tr>
+                        <td>${d.driver_name}</td>
+                        <td>${d.total_trips}</td>
+                        <td>${d.total_passengers}</td>
+                        <td>${d.total_hours || 0} hrs</td>
+                        <td>${d.avg_rating ? '⭐'.repeat(Math.round(d.avg_rating)) : '-'}</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            document.getElementById('driver-performance').innerHTML = html;
+        }
+
+        function renderHourlyDemand(hourlyData) {
+            if (!hourlyData.length) {
+                document.getElementById('hourly-demand').innerHTML = '<div>No data available</div>';
+                return;
+            }
+            
+            const maxDemand = Math.max(...hourlyData.map(h => h.demand), 1);
+            let html = '<div class="chart-bars">';
+            
+            for (const hour of hourlyData) {
+                const height = (hour.demand / maxDemand) * 150;
+                const hourLabel = hour.hour.toString().padStart(2, '0') + ':00';
+                html += `
+                    <div style="flex: 1; text-align: center;">
+                        <div style="height: ${height}px; background: linear-gradient(to top, #f39c12, #e67e22); border-radius: 8px 8px 0 0;"></div>
+                        <div class="bar-label">${hourLabel}</div>
+                        <div style="font-size: 10px;">${hour.demand}</div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            document.getElementById('hourly-demand').innerHTML = html;
+        }
+
+        function downloadReport() {
+            const period = document.getElementById('period-select').value;
+            let url = API_ENDPOINTS.downloadReport + `?period=${period}`;
+            
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            if (period === 'custom' && dateFrom && dateTo) {
+                url += `&date_from=${dateFrom}&date_to=${dateTo}`;
+            }
+            
+            window.open(url, '_blank');
+            showToast('Report download started', 'success');
+        }
+    </script>
+</body>
+</html>

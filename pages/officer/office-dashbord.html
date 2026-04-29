@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Traffic Officer Dashboard</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <style>
+        .map-placeholder {
+            background: #e9ecef;
+            height: 300px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        .alert-item {
+            padding: 12px;
+            border-left: 4px solid #e74c3c;
+            background: #fff5f5;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+        .alert-resolved {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+        .auth-request {
+            padding: 12px;
+            border: 1px solid #eee;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .auth-actions {
+            display: flex;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="office-dashbord.html" class="sidebar-nav-item active"><i>📊</i> <span>Dashboard</span></a>
+            <a href="congestion-reports.html" class="sidebar-nav-item"><i>🚨</i> <span>Congestion Reports</span></a>
+            <a href="authorizations.html" class="sidebar-nav-item"><i>📋</i> <span>Authorizations</span></a>
+            <a href="route-monitor.html" class="sidebar-nav-item"><i>🛣️</i> <span>Route Monitor</span></a>
+            <a href="vehicle-tracking.html" class="sidebar-nav-item"><i>📍</i> <span>Vehicle Tracking</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">O</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Traffic Officer Dashboard</h1>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-info"><h3 id="active-congestion">--</h3><p>Active Congestion Alerts</p></div><div class="stat-icon">🚨</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="pending-auth">--</h3><p>Pending Authorizations</p></div><div class="stat-icon">📋</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="active-vehicles">--</h3><p>Active Vehicles</p></div><div class="stat-icon">🚐</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="routes-monitored">--</h3><p>Routes Monitored</p></div><div class="stat-icon">🛣️</div></div>
+            </div>
+
+            <!-- Map and Alerts Row -->
+            <div class="stats-grid">
+                <div class="card" style="grid-column: span 2;">
+                    <h3>📍 Live Route Map</h3>
+                    <div class="map-placeholder" id="live-map">
+                        🗺️ Interactive Map will be displayed here<br>
+                        <small>Showing real-time vehicle locations and congestion hotspots</small>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>🚨 Active Congestion Alerts</h3>
+                    <div id="congestion-alerts" style="max-height: 250px; overflow-y: auto;">
+                        <div class="loading-spinner">Loading alerts...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Authorization Requests -->
+            <div class="card">
+                <h3>📋 Pending Route Authorization Requests</h3>
+                <div id="auth-requests">
+                    <div class="loading-spinner">Loading requests...</div>
+                </div>
+            </div>
+
+            <!-- Recent Congestion Reports -->
+            <div class="card">
+                <h3>📊 Recent Congestion Reports</h3>
+                <div id="reports-list">
+                    <div class="loading-spinner">Loading reports...</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <h3>⚡ Quick Actions</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="window.location.href='congestion-reports.html'">📝 View All Reports</button>
+                    <button class="btn btn-primary" onclick="window.location.href='authorizations.html'">✅ Review Authorizations</button>
+                    <button class="btn btn-primary" onclick="refreshDashboard()">🔄 Refresh Data</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            requireRole(['traffic_officer', 'admin']);
+            initCommon();
+            loadDashboardData();
+            loadCongestionAlerts();
+            loadAuthRequests();
+            loadRecentReports();
+            
+            setInterval(() => {
+                loadDashboardData();
+                loadCongestionAlerts();
+            }, 30000);
+        });
+        
+        async function loadDashboardData() {
+            const result = await apiRequest(API_ENDPOINTS.officerDashboard);
+            
+            if (result.success && result.data) {
+                document.getElementById('active-congestion').textContent = result.data.stats?.active_congestion || 0;
+                document.getElementById('pending-auth').textContent = result.data.stats?.pending_authorizations || 0;
+                document.getElementById('active-vehicles').textContent = result.data.stats?.active_vehicles || 0;
+                document.getElementById('routes-monitored').textContent = result.data.stats?.routes_monitored || 0;
+            }
+        }
+        
+        async function loadCongestionAlerts() {
+            const result = await apiRequest(API_ENDPOINTS.getCongestedRoutes + '?status=active');
+            
+            if (result.success && result.data.alerts && result.data.alerts.length > 0) {
+                let html = '';
+                for (const alert of result.data.alerts) {
+                    html += `
+                        <div class="alert-item">
+                            <div><strong>📍 ${alert.route_name}</strong></div>
+                            <div>🚶 ${alert.waiting_count} passengers waiting</div>
+                            <div>🕐 Reported ${timeAgo(alert.reported_at)}</div>
+                            <button class="btn btn-sm btn-primary" style="margin-top: 8px;" onclick="resolveAlert(${alert.report_id})">Mark Resolved</button>
+                        </div>
+                    `;
+                }
+                document.getElementById('congestion-alerts').innerHTML = html;
+            } else {
+                document.getElementById('congestion-alerts').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">✅ No active congestion alerts</div>';
+            }
+        }
+        
+        async function loadAuthRequests() {
+            const result = await apiRequest(API_ENDPOINTS.getAuthorizations + '?status=pending');
+            
+            if (result.success && result.data.authorizations && result.data.authorizations.length > 0) {
+                let html = '';
+                for (const auth of result.data.authorizations) {
+                    html += `
+                        <div class="auth-request">
+                            <div>
+                                <div><strong>🚐 ${auth.registration_number}</strong> requests to use <strong>${auth.temporary_route_name}</strong></div>
+                                <div>📝 Reason: ${auth.reason}</div>
+                                <div>⏰ Valid until: ${formatDate(auth.end_datetime)}</div>
+                            </div>
+                            <div class="auth-actions">
+                                <button class="btn btn-sm btn-primary" onclick="approveAuth(${auth.authorization_id})">✅ Approve</button>
+                                <button class="btn btn-sm btn-danger" onclick="rejectAuth(${auth.authorization_id})">❌ Reject</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('auth-requests').innerHTML = html;
+            } else {
+                document.getElementById('auth-requests').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No pending authorization requests</div>';
+            }
+        }
+        
+        async function loadRecentReports() {
+            const result = await apiRequest(API_ENDPOINTS.getCongestedRoutes + '?limit=10');
+            
+            if (result.success && result.data.reports) {
+                let html = '<table class="data-table"><thead><tr><th>Route</th><th>Waiting</th><th>Reported By</th><th>Time</th><th>Status</th></tr></thead><tbody>';
+                for (const report of result.data.reports) {
+                    html += `
+                        <tr>
+                            <td>${report.route_name}</td>
+                            <td>${report.waiting_count}</td>
+                            <td>${report.reported_by_name || 'Passenger'}</td>
+                            <td>${timeAgo(report.reported_at)}</td>
+                            <td><span class="status-badge ${report.status === 'active' ? 'status-high' : 'status-low'}">${report.status || 'Active'}</span></td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('reports-list').innerHTML = html;
+            } else {
+                document.getElementById('reports-list').innerHTML = '<div>No recent reports</div>';
+            }
+        }
+        
+        async function approveAuth(authId) {
+            const result = await apiRequest(API_ENDPOINTS.approveAuth, 'POST', { authorization_id: authId });
+            if (result.success) {
+                showToast('Authorization approved', 'success');
+                loadAuthRequests();
+            } else {
+                showToast(result.message, 'error');
+            }
+        }
+        
+        async function rejectAuth(authId) {
+            if (confirm('Reject this authorization request?')) {
+                const result = await apiRequest(API_ENDPOINTS.revokeAuth, 'POST', { authorization_id: authId });
+                if (result.success) {
+                    showToast('Authorization rejected', 'success');
+                    loadAuthRequests();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            }
+        }
+        
+        async function resolveAlert(reportId) {
+            const result = await apiRequest(API_ENDPOINTS.resolveCongestion, 'POST', { report_id: reportId });
+            if (result.success) {
+                showToast('Alert marked as resolved', 'success');
+                loadCongestionAlerts();
+            } else {
+                showToast(result.message, 'error');
+            }
+        }
+        
+        function refreshDashboard() {
+            loadDashboardData();
+            loadCongestionAlerts();
+            loadAuthRequests();
+            loadRecentReports();
+            showToast('Dashboard refreshed', 'success');
+        }
+    </script>
+</body>
+</html>

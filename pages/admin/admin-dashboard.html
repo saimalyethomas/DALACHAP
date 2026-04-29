@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Admin Dashboard</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <style>
+        /* Additional Admin Specific Styles */
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .mini-chart {
+            height: 200px;
+            position: relative;
+        }
+        .route-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .route-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .route-name {
+            font-weight: 500;
+        }
+        .route-demand {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .quick-action-btn {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .quick-action-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>🚌 DalaChap</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="admin-dashboard.html" class="sidebar-nav-item active">
+                <i>📊</i> <span>Dashboard</span>
+            </a>
+            <a href="manage-users.html" class="sidebar-nav-item">
+                <i>👥</i> <span>Manage Users</span>
+            </a>
+            <a href="manage-routes.html" class="sidebar-nav-item">
+                <i>🛣️</i> <span>Manage Routes</span>
+            </a>
+            <a href="manage-vehicles.html" class="sidebar-nav-item">
+                <i>🚐</i> <span>Manage Vehicles</span>
+            </a>
+            <a href="manage-associations.html" class="sidebar-nav-item">
+                <i>🏢</i> <span>Associations</span>
+            </a>
+            <a href="register-association.html" class="sidebar-nav-item">
+                <i>➕</i> <span>Register Association</span>
+            </a>
+            <a href="system-logs.html" class="sidebar-nav-item">
+                <i>📜</i> <span>System Logs</span>
+            </a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn">
+                <i>🚪</i> <span>Logout</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">
+                    🔔
+                    <span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="user-name">Admin User</div>
+                        <div class="user-role" id="user-role">Administrator</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Admin Dashboard</h1>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="stats-container">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="total-users">--</h3>
+                        <p>Total Users</p>
+                    </div>
+                    <div class="stat-icon">👥</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="total-routes">--</h3>
+                        <p>Active Routes</p>
+                    </div>
+                    <div class="stat-icon">🛣️</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="total-vehicles">--</h3>
+                        <p>Active Vehicles</p>
+                    </div>
+                    <div class="stat-icon">🚐</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="total-associations">--</h3>
+                        <p>Associations</p>
+                    </div>
+                    <div class="stat-icon">🏢</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="stats-grid">
+                <div class="chart-container">
+                    <div class="chart-title">📈 User Registration (Last 7 Days)</div>
+                    <div class="mini-chart" id="user-chart"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🚌 Route Demand Heatmap</div>
+                    <div class="route-list" id="route-demand-list">
+                        <div class="loading-spinner">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>📋 Recent System Activity</h3>
+                    <button class="quick-action-btn" onclick="refreshActivity()">🔄 Refresh</button>
+                </div>
+                <div id="recent-activity">
+                    <div class="loading-spinner">Loading activities...</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <h3>⚡ Quick Actions</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="window.location.href='manage-users.html'">➕ Add New User</button>
+                    <button class="btn btn-primary" onclick="window.location.href='manage-routes.html'">🛣️ Add New Route</button>
+                    <button class="btn btn-primary" onclick="window.location.href='manage-vehicles.html'">🚐 Register Vehicle</button>
+                    <button class="btn btn-primary" onclick="window.location.href='manage-associations.html'">🏢 Add Association</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        // Check authentication and role
+        if (!requireRole(['admin'])) {
+            // Function will redirect
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            initCommon();
+            loadDashboardStats();
+            loadRouteDemand();
+            loadRecentActivity();
+            loadUserChart();
+            
+            // Refresh every 30 seconds
+            setInterval(() => {
+                loadDashboardStats();
+                loadRouteDemand();
+            }, 30000);
+        });
+        
+        async function loadDashboardStats() {
+            const result = await apiRequest(API_ENDPOINTS.getDashboardStats);
+            
+            if (result.success && result.data) {
+                const stats = result.data;
+                document.getElementById('total-users').textContent = stats.total_users || 0;
+                document.getElementById('total-routes').textContent = stats.total_routes || 0;
+                document.getElementById('total-vehicles').textContent = stats.total_vehicles || 0;
+                document.getElementById('total-associations').textContent = stats.total_associations || 0;
+                
+                // Update chart with real registration data
+                if (stats.recent_registrations && stats.recent_registrations.length > 0) {
+                    loadUserChart(stats.recent_registrations);
+                }
+            } else {
+                showToast('Failed to load dashboard statistics', 'error');
+            }
+        }
+        
+        function loadUserChart(registrationData = null) {
+            let chartHtml = '<div style="display: flex; align-items: flex-end; height: 150px; gap: 20px; justify-content: center;">';
+            
+            if (registrationData && registrationData.length > 0) {
+                // Find max count for scaling
+                const maxCount = Math.max(...registrationData.map(d => d.count), 1);
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                
+                registrationData.forEach(day => {
+                    const date = new Date(day.date);
+                    const dayName = dayNames[date.getDay()];
+                    const heightPercent = Math.max((day.count / maxCount) * 140, 10);
+                    
+                    chartHtml += `
+                        <div style="text-align: center;">
+                            <div style="height: ${heightPercent}px; width: 40px; background: linear-gradient(to top, #667eea, #764ba2); border-radius: 8px;"></div>
+                            <div style="margin-top: 8px; font-size: 12px;">${dayName}</div>
+                            <div style="font-size: 11px; color: #667eea; font-weight: bold;">${day.count}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                // Fallback mock data if no registration data
+                const mockData = [
+                    { day: 'Mon', height: 80 },
+                    { day: 'Tue', height: 120 },
+                    { day: 'Wed', height: 95 },
+                    { day: 'Thu', height: 140 },
+                    { day: 'Fri', height: 65 },
+                    { day: 'Sat', height: 110 },
+                    { day: 'Sun', height: 55 }
+                ];
+                
+                mockData.forEach(d => {
+                    chartHtml += `
+                        <div style="text-align: center;">
+                            <div style="height: ${d.height}px; width: 40px; background: linear-gradient(to top, #667eea, #764ba2); border-radius: 8px;"></div>
+                            <div style="margin-top: 8px; font-size: 12px;">${d.day}</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            chartHtml += '</div>';
+            document.getElementById('user-chart').innerHTML = chartHtml;
+        }
+        
+        async function loadRouteDemand() {
+            const result = await apiRequest(API_ENDPOINTS.getCongestedRoutes);
+            
+            if (result.success && result.data.routes) {
+                let html = '';
+                for (const route of result.data.routes) {
+                    let demandClass = '';
+                    let demandText = '';
+                    if (route.demand_level === 'high') {
+                        demandClass = 'status-high';
+                        demandText = '🔥 High Demand';
+                    } else if (route.demand_level === 'medium') {
+                        demandClass = 'status-medium';
+                        demandText = '⚠️ Medium';
+                    } else {
+                        demandClass = 'status-low';
+                        demandText = '✅ Normal';
+                    }
+                    
+                    html += `
+                        <div class="route-item">
+                            <div>
+                                <div class="route-name">${route.route_name}</div>
+                                <div style="font-size: 12px; color: #666;">${route.waiting_count || 0} waiting</div>
+                            </div>
+                            <span class="route-demand ${demandClass}">${demandText}</span>
+                        </div>
+                    `;
+                }
+                document.getElementById('route-demand-list').innerHTML = html || '<div>No routes with demand data</div>';
+            } else {
+                document.getElementById('route-demand-list').innerHTML = '<div>Unable to load route demand</div>';
+            }
+        }
+        
+        async function loadRecentActivity() {
+            const result = await apiRequest(API_ENDPOINTS.getSystemLogs + '?limit=10');
+            
+            if (result.success && result.data.logs) {
+                let html = '<table class="data-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>IP Address</th></tr></thead><tbody>';
+                for (const log of result.data.logs) {
+                    html += `
+                        <tr>
+                            <td>${formatDate(log.created_at)}</td>
+                            <td>${log.user_name || 'System'}</td>
+                            <td>${log.action}</td>
+                            <td>${log.ip_address || '-'}</td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('recent-activity').innerHTML = html;
+            } else {
+                document.getElementById('recent-activity').innerHTML = '<div class="loading-spinner">No recent activity</div>';
+            }
+        }
+        
+        function refreshActivity() {
+            loadRecentActivity();
+            showToast('Activity refreshed', 'success');
+        }
+    </script>
+</body>
+</html>

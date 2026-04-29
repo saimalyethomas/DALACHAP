@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Trip History</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="association-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="my-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>My Vehicles</span></a>
+            <a href="drivers.html" class="sidebar-nav-item"><i>👨‍✈️</i> <span>Drivers</span></a>
+            <a href="register-driver.html" class="sidebar-nav-item"><i>➕</i> <span>Register Driver</span></a>
+            <a href="trip-history.html" class="sidebar-nav-item active"><i>📅</i> <span>Trip History</span></a>
+            <a href="reports.html" class="sidebar-nav-item"><i>📊</i> <span>Reports</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Trip History</h1>
+
+            <!-- Filters -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="vehicle-filter" onchange="loadTrips()" style="padding: 8px; border-radius: 8px;">
+                        <option value="">All Vehicles</option>
+                    </select>
+                    <select id="driver-filter" onchange="loadTrips()" style="padding: 8px; border-radius: 8px;">
+                        <option value="">All Drivers</option>
+                    </select>
+                    <input type="date" id="date-from" onchange="loadTrips()" style="padding: 8px; border-radius: 8px;">
+                    <input type="date" id="date-to" onchange="loadTrips()" style="padding: 8px; border-radius: 8px;">
+                    <button class="btn btn-primary" onclick="loadTrips()">Search</button>
+                    <button class="btn" onclick="exportTrips()">📥 Export</button>
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-info"><h3 id="total-trips">--</h3><p>Total Trips</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="total-passengers">--</h3><p>Total Passengers</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="avg-occupancy">--</h3><p>Avg Occupancy</p></div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="total-earnings">--</h3><p>Total Earnings</p></div></div>
+            </div>
+
+            <!-- Trips Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <div id="trips-container">
+                        <div class="loading-spinner">Loading trips...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <!-- Trip Details Modal -->
+    <div id="trip-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Trip Details</h3>
+                <button class="modal-close" onclick="closeTripModal()">&times;</button>
+            </div>
+            <div id="trip-details-container"></div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['association_leader', 'admin'])) return;
+            initCommon();
+            loadFilters();
+            loadTrips();
+        });
+
+        async function loadFilters() {
+            // Load vehicles
+            const vehiclesResult = await apiRequest(API_ENDPOINTS.getAssociationVehicles);
+            if (vehiclesResult.success && vehiclesResult.data.vehicles) {
+                const vehicleSelect = document.getElementById('vehicle-filter');
+                for (const v of vehiclesResult.data.vehicles) {
+                    const option = document.createElement('option');
+                    option.value = v.vehicle_id;
+                    option.textContent = v.registration_number;
+                    vehicleSelect.appendChild(option);
+                }
+            }
+            
+            // Load drivers
+            const driversResult = await apiRequest(API_ENDPOINTS.getAssociationDrivers);
+            if (driversResult.success && driversResult.data.drivers) {
+                const driverSelect = document.getElementById('driver-filter');
+                for (const d of driversResult.data.drivers) {
+                    const option = document.createElement('option');
+                    option.value = d.user_id;
+                    option.textContent = d.full_name;
+                    driverSelect.appendChild(option);
+                }
+            }
+        }
+
+        async function loadTrips(page = 1) {
+            currentPage = page;
+            
+            const vehicleId = document.getElementById('vehicle-filter').value;
+            const driverId = document.getElementById('driver-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            let url = API_ENDPOINTS.getAssociationTrips + `?page=${page}&limit=50`;
+            if (vehicleId) url += `&vehicle_id=${vehicleId}`;
+            if (driverId) url += `&driver_id=${driverId}`;
+            if (dateFrom) url += `&date_from=${dateFrom}`;
+            if (dateTo) url += `&date_to=${dateTo}`;
+            
+            const result = await apiRequest(url);
+            
+            if (result.success && result.data) {
+                // Update statistics
+                document.getElementById('total-trips').textContent = result.data.stats?.total_trips || 0;
+                document.getElementById('total-passengers').textContent = result.data.stats?.total_passengers || 0;
+                document.getElementById('avg-occupancy').textContent = `${result.data.stats?.avg_occupancy || 0}%`;
+                document.getElementById('total-earnings').textContent = `TSh ${(result.data.stats?.total_earnings || 0).toLocaleString()}`;
+                
+                // Build trips table
+                if (result.data.trips && result.data.trips.length > 0) {
+                    let html = '<table class="data-table"><thead><tr><th>Date</th><th>Vehicle</th><th>Driver</th><th>Route</th><th>Passengers</th><th>Duration</th><th>Earnings</th><th>Actions</th></tr></thead><tbody>';
+                    
+                    for (const trip of result.data.trips) {
+                        const earnings = trip.passenger_count * (trip.fare || 700);
+                        html += `
+                            <tr>
+                                <td>${formatDate(trip.start_time)}</td>
+                                <td>${trip.registration_number}</td>
+                                <td>${trip.driver_name}</td>
+                                <td>${trip.route_name}</td>
+                                <td>${trip.passenger_count || 0}</td>
+                                <td>${trip.duration_minutes || '-'} min</td>
+                                <td>TSh ${earnings.toLocaleString()}</td>
+                                <td><button class="btn btn-sm" onclick="viewTripDetails(${trip.trip_id})">View</button></td>
+                            </tr>
+                        `;
+                    }
+                    html += '</tbody></table>';
+                    document.getElementById('trips-container').innerHTML = html;
+                    
+                    totalPages = result.data.pagination?.total_pages || 1;
+                    renderPagination();
+                } else {
+                    document.getElementById('trips-container').innerHTML = '<div class="loading-spinner">No trips found</div>';
+                }
+            } else {
+                document.getElementById('trips-container').innerHTML = '<div class="loading-spinner">No trips found</div>';
+            }
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button class="btn btn-sm" onclick="loadTrips(${currentPage - 1})">← Previous</button>`;
+            }
+            
+            html += `<span style="padding: 8px;">Page ${currentPage} of ${totalPages}</span>`;
+            
+            if (currentPage < totalPages) {
+                html += `<button class="btn btn-sm" onclick="loadTrips(${currentPage + 1})">Next →</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        async function viewTripDetails(tripId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getTripDetails}?trip_id=${tripId}`);
+            if (result.success && result.data) {
+                const trip = result.data;
+                const earnings = trip.passenger_count * (trip.fare || 700);
+                
+                document.getElementById('trip-details-container').innerHTML = `
+                    <div style="display: grid; gap: 12px;">
+                        <div><strong>Vehicle:</strong> ${trip.registration_number} (Capacity: ${trip.capacity})</div>
+                        <div><strong>Driver:</strong> ${trip.driver_name} (${trip.driver_phone})</div>
+                        <div><strong>Route:</strong> ${trip.route_name}</div>
+                        <div><strong>Start Time:</strong> ${formatDate(trip.start_time)}</div>
+                        <div><strong>End Time:</strong> ${trip.end_time ? formatDate(trip.end_time) : 'Ongoing'}</div>
+                        <div><strong>Duration:</strong> ${trip.duration_minutes || '-'} minutes</div>
+                        <div><strong>Passengers:</strong> ${trip.passenger_count || 0}</div>
+                        <div><strong>Earnings:</strong> TSh ${earnings.toLocaleString()}</div>
+                        <div><strong>Status:</strong> <span class="badge ${trip.trip_status === 'completed' ? 'badge-success' : 'badge-warning'}">${trip.trip_status}</span></div>
+                    </div>
+                `;
+                document.getElementById('trip-modal').style.display = 'flex';
+            }
+        }
+
+        function exportTrips() {
+            const vehicleId = document.getElementById('vehicle-filter').value;
+            const driverId = document.getElementById('driver-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            let url = API_ENDPOINTS.exportTrips;
+            let params = [];
+            if (vehicleId) params.push(`vehicle_id=${vehicleId}`);
+            if (driverId) params.push(`driver_id=${driverId}`);
+            if (dateFrom) params.push(`date_from=${dateFrom}`);
+            if (dateTo) params.push(`date_to=${dateTo}`);
+            if (params.length) url += '?' + params.join('&');
+            
+            window.open(url, '_blank');
+            showToast('Export started', 'success');
+        }
+
+        function closeTripModal() {
+            document.getElementById('trip-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

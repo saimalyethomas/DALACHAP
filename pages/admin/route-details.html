@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Route Details</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+    <style>
+        .route-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .route-header h2 { margin-bottom: 10px; }
+        .route-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            opacity: 0.9;
+        }
+        .route-meta span { display: flex; align-items: center; gap: 5px; }
+        .stops-timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .stops-timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #667eea;
+        }
+        .timeline-stop {
+            position: relative;
+            padding: 15px 0;
+        }
+        .timeline-stop::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .timeline-stop:first-child::before { background: #28a745; }
+        .timeline-stop:last-child::before { background: #dc3545; }
+        .stop-time { font-size: 12px; color: #666; }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 15px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-btn:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="admin-dashboard.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="manage-users.html" class="sidebar-nav-item"><i>👥</i> <span>Manage Users</span></a>
+            <a href="manage-routes.html" class="sidebar-nav-item active"><i>🛣️</i> <span>Manage Routes</span></a>
+            <a href="manage-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>Manage Vehicles</span></a>
+            <a href="manage-associations.html" class="sidebar-nav-item"><i>🏢</i> <span>Associations</span></a>
+            <a href="register-association.html" class="sidebar-nav-item"><i>➕</i> <span>Register Association</span></a>
+            <a href="system-logs.html" class="sidebar-nav-item"><i>📜</i> <span>System Logs</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <a href="manage-routes.html" class="back-btn">← Back to Routes</a>
+            
+            <div id="route-header" class="route-header">
+                <div class="loading-spinner">Loading route details...</div>
+            </div>
+
+            <div class="card">
+                <h3>📍 Route Stops</h3>
+                <div id="stops-container" class="stops-timeline" style="margin-top: 15px;">
+                    <div class="loading-spinner">Loading stops...</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🚌 Assigned Vehicles</h3>
+                <div id="vehicles-container" style="margin-top: 15px;">
+                    <div class="loading-spinner">Loading vehicles...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['admin'])) return;
+            initCommon();
+            loadRouteDetails();
+        });
+
+        async function loadRouteDetails() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const routeId = urlParams.get('route_id');
+            
+            if (!routeId) {
+                showToast('No route ID provided', 'error');
+                return;
+            }
+
+            const result = await apiRequest(`${API_ENDPOINTS.getRouteDetails}?route_id=${routeId}`);
+            
+            if (result.success && result.data) {
+                const route = result.data;
+                
+                // Render header
+                document.getElementById('route-header').innerHTML = `
+                    <h2>${route.route_code} - ${route.route_name}</h2>
+                    <div class="route-meta">
+                        <span>🛣️ ${route.starting_point} → ${route.ending_point}</span>
+                        <span>📏 ${route.distance_km} km</span>
+                        <span>⏱️ ${route.estimated_duration_minutes} min</span>
+                        <span>💰 TSh ${route.base_fare}</span>
+                        <span class="badge ${route.status === 'active' ? 'badge-success' : 'badge-warning'}">${route.status}</span>
+                    </div>
+                `;
+                
+                // Render stops
+                const stops = route.stops || [];
+                if (stops.length > 0) {
+                    let stopsHtml = '';
+                    stops.forEach((stop, index) => {
+                        stopsHtml += `
+                            <div class="timeline-stop">
+                                <div class="stop-name">${index + 1}. ${stop.stop_name}</div>
+                                <div class="stop-time">⏱️ ${stop.estimated_arrival_minutes || 0} minutes from start</div>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('stops-container').innerHTML = stopsHtml;
+                } else {
+                    document.getElementById('stops-container').innerHTML = '<div style="color:#666;">No stops defined for this route.</div>';
+                }
+                
+                // Render vehicles (mock data if API doesn't return vehicles)
+                const vehicles = route.vehicles || [];
+                if (vehicles.length > 0) {
+                    let vehHtml = '<table class="data-table"><thead><tr><th>Plate</th><th>Driver</th><th>Status</th></tr></thead><tbody>';
+                    vehicles.forEach(v => {
+                        vehHtml += `<tr><td>${v.plate_number}</td><td>${v.driver_name || '-'}</td><td><span class="badge badge-success">Active</span></td></tr>`;
+                    });
+                    vehHtml += '</tbody></table>';
+                    document.getElementById('vehicles-container').innerHTML = vehHtml;
+                } else {
+                    document.getElementById('vehicles-container').innerHTML = '<div style="color:#666;">No vehicles currently assigned to this route.</div>';
+                }
+            } else {
+                document.getElementById('route-header').innerHTML = '<div class="loading-spinner">Route not found</div>';
+                document.getElementById('stops-container').innerHTML = '';
+                document.getElementById('vehicles-container').innerHTML = '';
+            }
+        }
+    </script>
+</body>
+</html>
+

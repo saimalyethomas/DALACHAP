@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Route Authorizations</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="office-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="congestion-reports.html" class="sidebar-nav-item"><i>🚨</i> <span>Congestion Reports</span></a>
+            <a href="authorizations.html" class="sidebar-nav-item active"><i>📋</i> <span>Authorizations</span></a>
+            <a href="route-monitor.html" class="sidebar-nav-item"><i>🛣️</i> <span>Route Monitor</span></a>
+            <a href="vehicle-tracking.html" class="sidebar-nav-item"><i>📍</i> <span>Vehicle Tracking</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">O</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Route Authorizations</h1>
+
+            <!-- Tabs -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee;">
+                <button class="tab-btn active" onclick="switchTab('pending')" style="padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 500;">⏳ Pending Requests</button>
+                <button class="tab-btn" onclick="switchTab('active')" style="padding: 10px 20px; background: none; border: none; cursor: pointer;">✅ Active Authorizations</button>
+                <button class="tab-btn" onclick="switchTab('history')" style="padding: 10px 20px; background: none; border: none; cursor: pointer;">📜 History</button>
+            </div>
+
+            <!-- Pending Requests -->
+            <div id="pending-container"></div>
+
+            <!-- Active Authorizations -->
+            <div id="active-container" style="display: none;"></div>
+
+            <!-- History -->
+            <div id="history-container" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Approve/Reject Modal -->
+    <div id="action-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="action-modal-title">Review Authorization</h3>
+                <button class="modal-close" onclick="closeActionModal()">&times;</button>
+            </div>
+            <input type="hidden" id="action-auth-id">
+            <div id="action-details"></div>
+            <div class="form-group"><label>Officer Notes</label><textarea id="action-notes" rows="3" placeholder="Add any conditions or notes..."></textarea></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn" onclick="closeActionModal()">Cancel</button>
+                <button class="btn btn-danger" id="reject-btn">❌ Reject</button>
+                <button class="btn btn-success" id="approve-btn">✅ Approve</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        let currentTab = 'pending';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['traffic_officer', 'admin'])) return;
+            initCommon();
+            loadPendingRequests();
+        });
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.tab-btn[onclick*="${tab}"]`).classList.add('active');
+            
+            document.getElementById('pending-container').style.display = tab === 'pending' ? 'block' : 'none';
+            document.getElementById('active-container').style.display = tab === 'active' ? 'block' : 'none';
+            document.getElementById('history-container').style.display = tab === 'history' ? 'block' : 'none';
+            
+            if (tab === 'pending') loadPendingRequests();
+            else if (tab === 'active') loadActiveAuthorizations();
+            else if (tab === 'history') loadAuthorizationHistory();
+        }
+
+        async function loadPendingRequests() {
+            const result = await apiRequest(API_ENDPOINTS.getAuthorizations + '?status=pending');
+            
+            if (result.success && result.data.authorizations && result.data.authorizations.length > 0) {
+                let html = '';
+                for (const auth of result.data.authorizations) {
+                    html += `
+                        <div class="card">
+                            <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                                <div>
+                                    <h4>🚐 ${auth.registration_number}</h4>
+                                    <p><strong>From:</strong> ${auth.original_route_name || 'Original route'}</p>
+                                    <p><strong>To:</strong> ${auth.temporary_route_name}</p>
+                                    <p><strong>Reason:</strong> ${auth.reason}</p>
+                                    <p><strong>Duration:</strong> Until ${formatDate(auth.end_datetime)} (${Math.ceil((new Date(auth.end_datetime) - new Date()) / (1000 * 60 * 60))} hours)</p>
+                                    <p><strong>Requested by:</strong> ${auth.requested_by_name}</p>
+                                    <p><strong>Requested on:</strong> ${formatDate(auth.created_at)}</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-success" onclick="openActionModal(${auth.authorization_id}, 'approve')">✅ Approve</button>
+                                    <button class="btn btn-danger" onclick="openActionModal(${auth.authorization_id}, 'reject')">❌ Reject</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('pending-container').innerHTML = html;
+            } else {
+                document.getElementById('pending-container').innerHTML = '<div class="card">No pending authorization requests</div>';
+            }
+        }
+
+        async function loadActiveAuthorizations() {
+            const result = await apiRequest(API_ENDPOINTS.getAuthorizations + '?status=active');
+            
+            if (result.success && result.data.authorizations && result.data.authorizations.length > 0) {
+                let html = '';
+                for (const auth of result.data.authorizations) {
+                    const expiresIn = Math.ceil((new Date(auth.end_datetime) - new Date()) / (1000 * 60 * 60));
+                    html += `
+                        <div class="card">
+                            <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                                <div>
+                                    <h4>🚐 ${auth.registration_number}</h4>
+                                    <p><strong>Authorized Route:</strong> ${auth.temporary_route_name}</p>
+                                    <p><strong>Valid until:</strong> ${formatDate(auth.end_datetime)}</p>
+                                    <p><strong>Expires in:</strong> ${expiresIn} hours</p>
+                                    <p><strong>Approved by:</strong> ${auth.authorized_by_name}</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-danger" onclick="revokeAuthorization(${auth.authorization_id})">🔴 Revoke</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('active-container').innerHTML = html;
+            } else {
+                document.getElementById('active-container').innerHTML = '<div class="card">No active authorizations</div>';
+            }
+        }
+
+        async function loadAuthorizationHistory() {
+            const result = await apiRequest(API_ENDPOINTS.getAuthorizations + '?status=expired,revoked');
+            
+            if (result.success && result.data.authorizations && result.data.authorizations.length > 0) {
+                let html = '<table class="data-table"><thead><tr><th>Vehicle</th><th>Route</th><th>Duration</th><th>Status</th><th>Approved By</th><th>Date</th></tr></thead><tbody>';
+                
+                for (const auth of result.data.authorizations) {
+                    const statusClass = auth.status === 'expired' ? 'badge-warning' : 'badge-danger';
+                    html += `
+                        <tr>
+                            <td>${auth.registration_number}</td>
+                            <td>${auth.temporary_route_name}</td>
+                            <td>${formatDate(auth.start_datetime)} - ${formatDate(auth.end_datetime)}</td>
+                            <td><span class="badge ${statusClass}">${auth.status}</span></td>
+                            <td>${auth.authorized_by_name}</td>
+                            <td>${formatDate(auth.created_at)}</td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('history-container').innerHTML = html;
+            } else {
+                document.getElementById('history-container').innerHTML = '<div class="card">No authorization history</div>';
+            }
+        }
+
+        function openActionModal(authId, action) {
+            document.getElementById('action-auth-id').value = authId;
+            document.getElementById('action-modal-title').textContent = action === 'approve' ? 'Approve Authorization' : 'Reject Authorization';
+            document.getElementById('action-notes').value = '';
+            
+            // Load auth details
+            loadAuthDetails(authId);
+            
+            document.getElementById('action-modal').style.display = 'flex';
+            
+            // Set button actions
+            document.getElementById('approve-btn').style.display = action === 'approve' ? 'inline-block' : 'none';
+            document.getElementById('reject-btn').style.display = action === 'reject' ? 'inline-block' : 'none';
+        }
+
+        async function loadAuthDetails(authId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getAuthorizations}?authorization_id=${authId}`);
+            if (result.success && result.data.authorization) {
+                const auth = result.data.authorization;
+                document.getElementById('action-details').innerHTML = `
+                    <p><strong>Vehicle:</strong> ${auth.registration_number}</p>
+                    <p><strong>Requested Route:</strong> ${auth.temporary_route_name}</p>
+                    <p><strong>Reason:</strong> ${auth.reason}</p>
+                    <p><strong>Duration:</strong> Until ${formatDate(auth.end_datetime)}</p>
+                `;
+            }
+        }
+
+        document.getElementById('approve-btn').addEventListener('click', async () => {
+            const authId = document.getElementById('action-auth-id').value;
+            const notes = document.getElementById('action-notes').value;
+            
+            const result = await apiRequest(API_ENDPOINTS.approveAuth, 'POST', { 
+                authorization_id: authId, 
+                officer_notes: notes 
+            });
+            
+            if (result.success) {
+                showToast('Authorization approved successfully', 'success');
+                closeActionModal();
+                loadPendingRequests();
+                loadActiveAuthorizations();
+            } else {
+                showToast(result.message, 'error');
+            }
+        });
+
+        document.getElementById('reject-btn').addEventListener('click', async () => {
+            const authId = document.getElementById('action-auth-id').value;
+            const reason = document.getElementById('action-notes').value || 'Rejected by traffic officer';
+            
+            const result = await apiRequest(API_ENDPOINTS.revokeAuth, 'POST', { 
+                authorization_id: authId, 
+                revoke_reason: reason 
+            });
+            
+            if (result.success) {
+                showToast('Authorization rejected', 'success');
+                closeActionModal();
+                loadPendingRequests();
+            } else {
+                showToast(result.message, 'error');
+            }
+        });
+
+        async function revokeAuthorization(authId) {
+            if (confirm('Are you sure you want to revoke this authorization?')) {
+                const result = await apiRequest(API_ENDPOINTS.revokeAuth, 'POST', { 
+                    authorization_id: authId, 
+                    revoke_reason: 'Revoked by traffic officer' 
+                });
+                if (result.success) {
+                    showToast('Authorization revoked', 'success');
+                    loadActiveAuthorizations();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            }
+        }
+
+        function closeActionModal() {
+            document.getElementById('action-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

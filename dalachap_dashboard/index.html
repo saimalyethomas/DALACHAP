@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DalaChap - Login & Register</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        /* Foldable Card Container */
+        .fold-container {
+            perspective: 1200px;
+            width: 100%;
+            max-width: 420px;
+            height: 640px;
+            position: relative;
+        }
+        
+        .fold-card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .fold-card.folded {
+            transform: rotateY(180deg);
+        }
+        
+        /* Sides */
+        .card-side {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-side.front {
+            z-index: 2;
+        }
+        
+        .card-side.back {
+            transform: rotateY(180deg);
+            z-index: 1;
+        }
+        
+        /* Headers */
+        .side-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 35px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .side-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(10%, 10%) rotate(5deg); }
+        }
+        
+        .side-header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .side-header h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .side-header p {
+            opacity: 0.9;
+            font-size: 13px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .fold-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            display: block;
+        }
+        
+        /* Body */
+        .side-body {
+            padding: 30px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(102,126,234,0.1);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn:hover::after {
+            left: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Toggle Section */
+        .toggle-section {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .toggle-section p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: 2px solid #667eea;
+            color: #667eea;
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .toggle-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Error Message */
+        .error-message {
+            background: #fee;
+            color: #c00;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 14px;
+            border-left: 4px solid #c00;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 14px;
+            border-left: 4px solid #2e7d32;
+        }
+        
+        /* Demo credentials */
+        .demo-credentials {
+            margin-top: auto;
+            padding-top: 15px;
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+        }
+        
+        .demo-credentials p {
+            margin-bottom: 3px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .fold-container {
+                height: auto;
+                min-height: 580px;
+            }
+            .card-side {
+                position: relative;
+                height: auto;
+                min-height: 580px;
+            }
+            .card-side.back {
+                position: absolute;
+            }
+            .side-header {
+                padding: 25px 20px;
+            }
+            .side-header h1, .side-header h2 {
+                font-size: 22px;
+            }
+            .side-body {
+                padding: 20px;
+            }
+        }
+        
+        /* Scrollbar styling for form overflow */
+        .side-body::-webkit-scrollbar {
+            width: 4px;
+        }
+        .side-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .side-body::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="fold-container">
+        <div class="fold-card" id="foldCard">
+            
+            <!-- FRONT SIDE: LOGIN -->
+            <div class="card-side front">
+                <div class="side-header">
+                    <span class="fold-icon">🚌</span>
+                    <h1>Welcome Back</h1>
+                    <p>Login to DalaChap Dashboard</p>
+                </div>
+                <div class="side-body">
+                    <div class="error-message" id="login-error"></div>
+                    
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="login-email" name="email" placeholder="Enter your email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="login-password" name="password" placeholder="Enter your password" required>
+                        </div>
+                        <button type="submit" class="btn">Login to Dashboard</button>
+                    </form>
+                    
+                    <div class="toggle-section">
+                        <p>Don't have an account?</p>
+                        <button class="toggle-btn" onclick="toggleFold()">Create Account →</button>
+                    </div>
+                    
+                    <div class="demo-credentials">
+                        <p><strong>Demo:</strong> admin@dalachap.com / password123</p>
+                        <p>traffic@dalachap.com / password123</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- BACK SIDE: REGISTER -->
+            <div class="card-side back">
+                <div class="side-header">
+                    <span class="fold-icon">📝</span>
+                    <h2>Get Started</h2>
+                    <p>Create your DalaChap account</p>
+                </div>
+                <div class="side-body">
+                    <div class="error-message" id="register-error"></div>
+                    <div class="success-message" id="register-success"></div>
+                    
+                    <form id="register-form">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="reg-name" placeholder="John Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="reg-email" placeholder="you@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" id="reg-phone" placeholder="+255..." required>
+                        </div>
+                        <div class="form-group">
+                            <label>Role</label>
+                            <select id="reg-role" required>
+                                <option value="">Select your role...</option>
+                                <option value="passenger">Passenger</option>
+                                <option value="driver">Driver</option>
+                                <option value="association_leader">Association Leader</option>
+                                <option value="traffic_officer">Traffic Officer</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="reg-password" placeholder="Min 6 characters" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm Password</label>
+                            <input type="password" id="reg-confirm" placeholder="Repeat password" required>
+                        </div>
+                        <button type="submit" class="btn">Create Account</button>
+                    </form>
+                    
+                    <div class="toggle-section">
+                        <p>Already have an account?</p>
+                        <button class="toggle-btn" onclick="toggleFold()">← Back to Login</button>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script src="assets/js/config.js?v=2"></script>
+    <script src="assets/js/auth.js?v=2"></script>
+    
+    <script>
+        const foldCard = document.getElementById('foldCard');
+        
+        function toggleFold() {
+            foldCard.classList.toggle('folded');
+        }
+        
+        // Login Form
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            loginError.style.display = 'none';
+            
+            const result = await login(email, password);
+            
+            if (result.success) {
+                window.location.href = getDashboardUrl(result.user.role);
+            } else {
+                loginError.textContent = result.message || 'Login failed. Please check your credentials.';
+                loginError.style.display = 'block';
+            }
+        });
+        
+        // Registration Form
+        const registerForm = document.getElementById('register-form');
+        const registerError = document.getElementById('register-error');
+        const registerSuccess = document.getElementById('register-success');
+        
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const role = document.getElementById('reg-role').value;
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-confirm').value;
+            
+            registerError.style.display = 'none';
+            registerSuccess.style.display = 'none';
+            
+            // Validation
+            if (password !== confirm) {
+                registerError.textContent = 'Passwords do not match.';
+                registerError.style.display = 'block';
+                return;
+            }
+            
+            if (password.length < 6) {
+                registerError.textContent = 'Password must be at least 6 characters.';
+                registerError.style.display = 'block';
+                return;
+            }
+            
+            if (!role) {
+                registerError.textContent = 'Please select a role.';
+                registerError.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch(API_ENDPOINTS.register, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: name,
+                        email: email,
+                        phone_number: phone,
+                        role: role,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    registerSuccess.textContent = 'Account created successfully! Redirecting to login...';
+                    registerSuccess.style.display = 'block';
+                    registerForm.reset();
+                    
+                    setTimeout(() => {
+                        toggleFold();
+                        registerSuccess.style.display = 'none';
+                    }, 2000);
+                } else {
+                    registerError.textContent = data.message || 'Registration failed. Please try again.';
+                    registerError.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                registerError.textContent = 'Network error. Please try again.';
+                registerError.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

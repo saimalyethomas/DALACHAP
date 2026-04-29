@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Route Monitor</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+    <style>
+        .route-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .demond-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .demond-high { background: #e74c3c; box-shadow: 0 0 5px #e74c3c; }
+        .demond-medium { background: #f39c12; box-shadow: 0 0 5px #f39c12; }
+        .demond-low { background: #28a745; box-shadow: 0 0 5px #28a745; }
+        .vehicle-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .vehicle-online {
+            border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="office-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="congestion-reports.html" class="sidebar-nav-item"><i>🚨</i> <span>Congestion Reports</span></a>
+            <a href="authorizations.html" class="sidebar-nav-item"><i>📋</i> <span>Authorizations</span></a>
+            <a href="route-monitor.html" class="sidebar-nav-item active"><i>🛣️</i> <span>Route Monitor</span></a>
+            <a href="vehicle-tracking.html" class="sidebar-nav-item"><i>📍</i> <span>Vehicle Tracking</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">O</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Route Monitor</h1>
+
+            <!-- Route Selection -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="route-select" onchange="loadRouteData()" style="padding: 10px; border-radius: 8px; flex: 1; max-width: 300px;">
+                        <option value="">Select a route</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadRouteData()">Load Route</button>
+                    <button class="btn" onclick="startAutoRefresh()">🔄 Auto Refresh (30s)</button>
+                </div>
+            </div>
+
+            <!-- Route Details -->
+            <div id="route-details" style="display: none;">
+                <div class="route-header">
+                    <h2 id="route-name-display"></h2>
+                    <div style="display: flex; gap: 30px; flex-wrap: wrap; margin-top: 10px;">
+                        <div>📍 <span id="route-start"></span> → <span id="route-end"></span></div>
+                        <div>📏 Distance: <span id="route-distance"></span> km</div>
+                        <div>⏱️ Est. Duration: <span id="route-duration"></span> min</div>
+                        <div>💰 Fare: TSh <span id="route-fare"></span></div>
+                    </div>
+                </div>
+
+                <!-- Demand Status -->
+                <div class="stats-grid">
+                    <div class="card">
+                        <h3>📊 Current Demand Status</h3>
+                        <div id="demand-status">
+                            <div class="loading-spinner">Loading demand data...</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>🚌 Active Vehicles</h3>
+                        <div id="active-vehicles-count" style="font-size: 36px; font-weight: bold;">0</div>
+                        <p>vehicles currently on this route</p>
+                    </div>
+                </div>
+
+                <!-- Stops -->
+                <div class="card">
+                    <h3>🛑 Route Stops</h3>
+                    <div id="stops-list" class="vehicle-list"></div>
+                </div>
+
+                <!-- Vehicles -->
+                <div class="card">
+                    <h3>🚐 Active Vehicles on Route</h3>
+                    <div id="vehicles-list" class="vehicle-list"></div>
+                </div>
+
+                <!-- Recent Congestion Reports -->
+                <div class="card">
+                    <h3>🚨 Recent Congestion Reports</h3>
+                    <div id="reports-list"></div>
+                </div>
+            </div>
+
+            <div id="no-route-selected" class="card" style="text-align: center; padding: 60px;">
+                <h3>👈 Select a route from the dropdown to monitor</h3>
+                <p>View real-time demand, active vehicles, and congestion reports</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        let autoRefreshInterval = null;
+        let currentRouteId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['traffic_officer', 'admin'])) return;
+            initCommon();
+            loadRoutesForSelect();
+        });
+
+        async function loadRoutesForSelect() {
+            const result = await apiRequest(API_ENDPOINTS.getRoutes);
+            if (result.success && result.data.routes) {
+                const select = document.getElementById('route-select');
+                for (const route of result.data.routes) {
+                    const option = document.createElement('option');
+                    option.value = route.route_id;
+                    option.textContent = route.route_name;
+                    select.appendChild(option);
+                }
+            }
+        }
+
+        async function loadRouteData() {
+            const routeId = document.getElementById('route-select').value;
+            if (!routeId) {
+                document.getElementById('route-details').style.display = 'none';
+                document.getElementById('no-route-selected').style.display = 'block';
+                return;
+            }
+            
+            currentRouteId = routeId;
+            document.getElementById('route-details').style.display = 'block';
+            document.getElementById('no-route-selected').style.display = 'none';
+            
+            await Promise.all([
+                loadRouteDetails(routeId),
+                loadDemandStatus(routeId),
+                loadRouteStops(routeId),
+                loadActiveVehicles(routeId),
+                loadRouteReports(routeId)
+            ]);
+        }
+
+        async function loadRouteDetails(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getRouteDetails}?route_id=${routeId}`);
+            if (result.success && result.data) {
+                const route = result.data;
+                document.getElementById('route-name-display').textContent = route.route_name;
+                document.getElementById('route-start').textContent = route.starting_point;
+                document.getElementById('route-end').textContent = route.ending_point;
+                document.getElementById('route-distance').textContent = route.distance_km;
+                document.getElementById('route-duration').textContent = route.estimated_duration_minutes;
+                document.getElementById('route-fare').textContent = route.base_fare;
+            }
+        }
+
+        async function loadDemandStatus(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getDemandStatus}?route_id=${routeId}`);
+            if (result.success && result.data) {
+                const demand = result.data;
+                let demandClass = '';
+                let demandText = '';
+                
+                if (demand.demand_level === 'high') {
+                    demandClass = 'demond-high';
+                    demandText = 'High Demand';
+                } else if (demand.demand_level === 'medium') {
+                    demandClass = 'demond-medium';
+                    demandText = 'Medium Demand';
+                } else {
+                    demandClass = 'demond-low';
+                    demandText = 'Normal Demand';
+                }
+                
+                document.getElementById('demand-status').innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <div><span class="demond-indicator ${demandClass}"></span> <strong>${demandText}</strong></div>
+                        <div>🚶 Waiting Passengers: <strong>${demand.waiting_count || 0}</strong></div>
+                        <div>⏱️ Est. Wait Time: <strong>${demand.estimated_wait_time || 'N/A'}</strong> min</div>
+                        <div>🕐 Last Report: ${demand.last_report_time ? timeAgo(demand.last_report_time) : 'No recent reports'}</div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('demand-status').innerHTML = '<div>No demand data available</div>';
+            }
+        }
+
+        async function loadRouteStops(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getRouteDetails}?route_id=${routeId}`);
+            if (result.success && result.data && result.data.stops) {
+                let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                for (const stop of result.data.stops) {
+                    html += `
+                        <div style="display: flex; align-items: center; gap: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="width: 30px; height: 30px; background: #667eea; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">${stop.stop_order}</div>
+                            <div><strong>${stop.stop_name}</strong></div>
+                            <div style="color: #666;">Arrives in ~${stop.estimated_arrival_minutes} min</div>
+                        </div>
+                    `;
+                }
+                html += '</div>';
+                document.getElementById('stops-list').innerHTML = html;
+            } else {
+                document.getElementById('stops-list').innerHTML = '<div>No stops data available</div>';
+            }
+        }
+
+        async function loadActiveVehicles(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getVehicles}?route_id=${routeId}&status=active`);
+            if (result.success && result.data.vehicles) {
+                const vehicles = result.data.vehicles;
+                document.getElementById('active-vehicles-count').textContent = vehicles.length;
+                
+                if (vehicles.length > 0) {
+                    let html = '';
+                    for (const vehicle of vehicles) {
+                        const isOnline = vehicle.current_latitude ? 'vehicle-online' : '';
+                        html += `
+                            <div class="vehicle-list-item ${isOnline}" style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                                <div>
+                                    <strong>🚐 ${vehicle.registration_number}</strong>
+                                    <div style="font-size: 12px; color: #666;">Driver: ${vehicle.driver_name || 'Unknown'}</div>
+                                </div>
+                                <div>
+                                    <span class="badge ${vehicle.current_latitude ? 'badge-success' : 'badge-secondary'}">
+                                        ${vehicle.current_latitude ? 'Online' : 'Offline'}
+                                    </span>
+                                    <button class="btn btn-sm" onclick="window.location.href='vehicle-tracking.html?vehicle_id=${vehicle.vehicle_id}'">Track</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    document.getElementById('vehicles-list').innerHTML = html;
+                } else {
+                    document.getElementById('vehicles-list').innerHTML = '<div style="padding: 20px; text-align: center;">No active vehicles on this route</div>';
+                }
+            } else {
+                document.getElementById('active-vehicles-count').textContent = '0';
+                document.getElementById('vehicles-list').innerHTML = '<div>Unable to load vehicles</div>';
+            }
+        }
+
+        async function loadRouteReports(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getCongestedReports}?route_id=${routeId}&limit=10`);
+            if (result.success && result.data.reports && result.data.reports.length > 0) {
+                let html = '<table class="data-table"><thead><tr><th>Time</th><th>Location</th><th>Waiting</th><th>Status</th></tr></thead><tbody>';
+                for (const report of result.data.reports) {
+                    const statusClass = report.status === 'active' ? 'badge-danger' : 'badge-success';
+                    html += `
+                        <tr>
+                            <td>${timeAgo(report.reported_at)}</td>
+                            <td>${report.stop_name || 'Unknown'}</td>
+                            <td>${report.waiting_count}</td>
+                            <td><span class="badge ${statusClass}">${report.status || 'Active'}</span></td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('reports-list').innerHTML = html;
+            } else {
+                document.getElementById('reports-list').innerHTML = '<div>No recent congestion reports</div>';
+            }
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            
+            autoRefreshInterval = setInterval(() => {
+                if (currentRouteId) {
+                    loadDemandStatus(currentRouteId);
+                    loadActiveVehicles(currentRouteId);
+                    loadRouteReports(currentRouteId);
+                }
+            }, 30000);
+            
+            showToast('Auto-refresh enabled (every 30 seconds)', 'success');
+        }
+    </script>
+</body>
+</html>

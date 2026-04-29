@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - System Logs</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="admin-dashboard.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="manage-users.html" class="sidebar-nav-item"><i>👥</i> <span>Manage Users</span></a>
+            <a href="manage-routes.html" class="sidebar-nav-item"><i>🛣️</i> <span>Manage Routes</span></a>
+            <a href="manage-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>Manage Vehicles</span></a>
+            <a href="manage-associations.html" class="sidebar-nav-item"><i>🏢</i> <span>Associations</span></a>
+            <a href="register-association.html" class="sidebar-nav-item"><i>➕</i> <span>Register Association</span></a>
+            <a href="system-logs.html" class="sidebar-nav-item active"><i>📜</i> <span>System Logs</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">System Activity Logs</h1>
+
+            <!-- Filters -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="action-filter" onchange="loadLogs()" style="padding: 8px; border-radius: 8px;">
+                        <option value="">All Actions</option>
+                        <option value="LOGIN">Login</option>
+                        <option value="LOGOUT">Logout</option>
+                        <option value="REGISTER">Register</option>
+                        <option value="ADD_ROUTE">Add Route</option>
+                        <option value="UPDATE_ROUTE">Update Route</option>
+                        <option value="ADD_VEHICLE">Add Vehicle</option>
+                        <option value="START_TRIP">Start Trip</option>
+                        <option value="END_TRIP">End Trip</option>
+                        <option value="REPORT_CONGESTION">Report Congestion</option>
+                        <option value="APPROVE_AUTH">Approve Auth</option>
+                    </select>
+                    <input type="date" id="date-from" onchange="loadLogs()" style="padding: 8px; border-radius: 8px;">
+                    <input type="date" id="date-to" onchange="loadLogs()" style="padding: 8px; border-radius: 8px;">
+                    <button class="btn btn-primary" onclick="loadLogs()">Search</button>
+                    <button class="btn" onclick="exportLogs()">📥 Export CSV</button>
+                </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <div id="logs-container">
+                        <div class="loading-spinner">Loading logs...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['admin'])) return;
+            initCommon();
+            loadLogs();
+        });
+
+        async function loadLogs(page = 1) {
+            currentPage = page;
+            const action = document.getElementById('action-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            let url = API_ENDPOINTS.getSystemLogs + `?page=${page}&limit=50`;
+            if (action) url += `&action=${action}`;
+            if (dateFrom) url += `&date_from=${dateFrom}`;
+            if (dateTo) url += `&date_to=${dateTo}`;
+            
+            const result = await apiRequest(url);
+            
+            if (result.success && result.data.logs) {
+                let html = '<table class="data-table"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Description</th><th>IP Address</th></tr></thead><tbody>';
+                
+                for (const log of result.data.logs) {
+                    let actionClass = '';
+                    if (log.action === 'LOGIN') actionClass = 'badge-success';
+                    else if (log.action === 'LOGOUT') actionClass = 'badge-info';
+                    else if (log.action.includes('DELETE')) actionClass = 'badge-danger';
+                    else actionClass = 'badge-warning';
+                    
+                    html += `
+                        <tr>
+                            <td>${formatDate(log.created_at)}</td>
+                            <td>${log.user_name || 'System'}</td>
+                            <td><span class="badge ${actionClass}">${log.action}</span></td>
+                            <td>${log.description || '-'}</td>
+                            <td>${log.ip_address || '-'}</td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('logs-container').innerHTML = html;
+                
+                totalPages = result.data.pagination?.total_pages || 1;
+                renderPagination();
+            } else {
+                document.getElementById('logs-container').innerHTML = '<div class="loading-spinner">No logs found</div>';
+            }
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            if (currentPage > 1) {
+                html += `<button class="btn btn-sm" onclick="loadLogs(${currentPage - 1})">← Previous</button>`;
+            }
+            
+            html += `<span style="padding: 8px;">Page ${currentPage} of ${totalPages}</span>`;
+            
+            if (currentPage < totalPages) {
+                html += `<button class="btn btn-sm" onclick="loadLogs(${currentPage + 1})">Next →</button>`;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        async function exportLogs() {
+            const action = document.getElementById('action-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            let url = API_ENDPOINTS.exportLogs;
+            let params = [];
+            if (action) params.push(`action=${action}`);
+            if (dateFrom) params.push(`date_from=${dateFrom}`);
+            if (dateTo) params.push(`date_to=${dateTo}`);
+            if (params.length) url += '?' + params.join('&');
+            
+            window.open(url, '_blank');
+            showToast('Export started', 'success');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Vehicle Tracking</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+    <style>
+        .map-placeholder {
+            background: #1a1a2e;
+            height: 400px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .map-mock {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .vehicle-marker {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            animation: bounce 1s ease infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, -50%); }
+            50% { transform: translate(-50%, -55%); }
+        }
+        .location-history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="office-dashbord.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="congestion-reports.html" class="sidebar-nav-item"><i>🚨</i> <span>Congestion Reports</span></a>
+            <a href="authorizations.html" class="sidebar-nav-item"><i>📋</i> <span>Authorizations</span></a>
+            <a href="route-monitor.html" class="sidebar-nav-item"><i>🛣️</i> <span>Route Monitor</span></a>
+            <a href="vehicle-tracking.html" class="sidebar-nav-item active"><i>📍</i> <span>Vehicle Tracking</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">O</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Vehicle Tracking</h1>
+
+            <!-- Vehicle Selection -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="vehicle-select" onchange="loadVehicleData()" style="padding: 10px; border-radius: 8px; flex: 1; max-width: 300px;">
+                        <option value="">Select a vehicle</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadVehicleData()">Track</button>
+                    <button class="btn" onclick="startLiveTracking()">🟢 Live Tracking</button>
+                </div>
+            </div>
+
+            <!-- Vehicle Details -->
+            <div id="vehicle-details" style="display: none;">
+                <!-- Vehicle Info -->
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-info"><h3 id="vehicle-reg">--</h3><p>Registration Number</p></div></div>
+                    <div class="stat-card"><div class="stat-info"><h3 id="vehicle-status">--</h3><p>Status</p></div></div>
+                    <div class="stat-card"><div class="stat-info"><h3 id="vehicle-route">--</h3><p>Current Route</p></div></div>
+                    <div class="stat-card"><div class="stat-info"><h3 id="last-update">--</h3><p>Last Update</p></div></div>
+                </div>
+
+                <!-- Map -->
+                <div class="card">
+                    <h3>📍 Current Location</h3>
+                    <div class="map-placeholder" id="map-container">
+                        <div class="map-mock">
+                            <div class="vehicle-marker" id="vehicle-marker">🚐</div>
+                            <div id="location-coords" style="position: absolute; bottom: 20px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 20px; font-size: 12px;"></div>
+                            <div style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 20px; font-size: 12px;" id="map-status">Waiting for location data...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location History -->
+                <div class="card">
+                    <h3>📍 Recent Location History</h3>
+                    <div id="location-history" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- Trip Info -->
+                <div class="card">
+                    <h3>📅 Current Trip Information</h3>
+                    <div id="trip-info"></div>
+                </div>
+            </div>
+
+            <div id="no-vehicle-selected" class="card" style="text-align: center; padding: 60px;">
+                <h3>👈 Select a vehicle from the dropdown to track</h3>
+                <p>View real-time location, route information, and location history</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        let liveInterval = null;
+        let currentVehicleId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['traffic_officer', 'admin', 'association_leader'])) return;
+            initCommon();
+            loadVehiclesForSelect();
+        });
+
+        async function loadVehiclesForSelect() {
+            const result = await apiRequest(API_ENDPOINTS.getVehicles);
+            if (result.success && result.data.vehicles) {
+                const select = document.getElementById('vehicle-select');
+                for (const vehicle of result.data.vehicles) {
+                    const option = document.createElement('option');
+                    option.value = vehicle.vehicle_id;
+                    option.textContent = `${vehicle.registration_number} - ${vehicle.owner_name}`;
+                    select.appendChild(option);
+                }
+            }
+        }
+
+        async function loadVehicleData() {
+            const vehicleId = document.getElementById('vehicle-select').value;
+            if (!vehicleId) {
+                document.getElementById('vehicle-details').style.display = 'none';
+                document.getElementById('no-vehicle-selected').style.display = 'block';
+                return;
+            }
+            
+            currentVehicleId = vehicleId;
+            document.getElementById('vehicle-details').style.display = 'block';
+            document.getElementById('no-vehicle-selected').style.display = 'none';
+            
+            await Promise.all([
+                loadVehicleInfo(vehicleId),
+                loadLocationHistory(vehicleId),
+                loadCurrentTrip(vehicleId)
+            ]);
+        }
+
+        async function loadVehicleInfo(vehicleId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getVehicles}?vehicle_id=${vehicleId}`);
+            if (result.success && result.data.vehicle) {
+                const v = result.data.vehicle;
+                document.getElementById('vehicle-reg').textContent = v.registration_number;
+                document.getElementById('vehicle-status').innerHTML = `<span class="badge ${v.status === 'active' ? 'badge-success' : 'badge-danger'}">${v.status}</span>`;
+                document.getElementById('vehicle-route').textContent = v.current_route || 'Not assigned';
+                
+                // Update map with current location
+                if (v.current_location && v.current_location.latitude) {
+                    const lat = v.current_location.latitude;
+                    const lng = v.current_location.longitude;
+                    document.getElementById('location-coords').innerHTML = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    document.getElementById('map-status').innerHTML = `🟢 Last seen ${timeAgo(v.current_location.recorded_at)}`;
+                    document.getElementById('last-update').textContent = timeAgo(v.current_location.recorded_at);
+                } else {
+                    document.getElementById('location-coords').innerHTML = '📍 Location unknown';
+                    document.getElementById('map-status').innerHTML = '⚫ No recent location data';
+                    document.getElementById('last-update').textContent = 'Unknown';
+                }
+            }
+        }
+
+        async function loadLocationHistory(vehicleId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getVehicleLocation}?vehicle_id=${vehicleId}&limit=20`);
+            if (result.success && result.data.location_history) {
+                const locations = result.data.location_history;
+                if (locations.length > 0) {
+                    let html = '';
+                    for (const loc of locations) {
+                        html += `
+                            <div class="location-history-item">
+                                <div>📍 ${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</div>
+                                <div style="color: #666;">Speed: ${loc.speed_kmh || 0} km/h | ${timeAgo(loc.recorded_at)}</div>
+                            </div>
+                        `;
+                    }
+                    document.getElementById('location-history').innerHTML = html;
+                } else {
+                    document.getElementById('location-history').innerHTML = '<div class="location-history-item">No location history available</div>';
+                }
+            } else {
+                document.getElementById('location-history').innerHTML = '<div class="location-history-item">Unable to load location history</div>';
+            }
+        }
+
+        async function loadCurrentTrip(vehicleId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getVehicles}?vehicle_id=${vehicleId}`);
+            if (result.success && result.data.vehicle && result.data.vehicle.current_trip) {
+                const trip = result.data.vehicle.current_trip;
+                document.getElementById('trip-info').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div><strong>Trip ID:</strong> ${trip.trip_id}</div>
+                        <div><strong>Route:</strong> ${trip.route_name || 'Unknown'}</div>
+                        <div><strong>Started:</strong> ${timeAgo(trip.start_time)}</div>
+                        <div><strong>Passengers:</strong> ${trip.passenger_count || 0} on board</div>
+                        <div><strong>Status:</strong> <span class="badge badge-warning">Ongoing</span></div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('trip-info').innerHTML = '<div>No active trip</div>';
+            }
+        }
+
+        function startLiveTracking() {
+            if (liveInterval) clearInterval(liveInterval);
+            
+            liveInterval = setInterval(() => {
+                if (currentVehicleId) {
+                    loadVehicleInfo(currentVehicleId);
+                    loadLocationHistory(currentVehicleId);
+                    loadCurrentTrip(currentVehicleId);
+                }
+            }, 10000);
+            
+            showToast('Live tracking enabled (updates every 10 seconds)', 'success');
+        }
+    </script>
+</body>
+</html>

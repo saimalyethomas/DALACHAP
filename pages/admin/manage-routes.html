@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Manage Routes</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/mobile-responsive.css">
+    <style>
+        .route-stops {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .stop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .stop-name { font-weight: 500; }
+        .stop-order { color: #666; font-size: 12px; }
+        .add-stop-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .add-stop-row input { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="admin-dashboard.html" class="sidebar-nav-item"><i>📊</i> <span>Dashboard</span></a>
+            <a href="manage-users.html" class="sidebar-nav-item"><i>👥</i> <span>Manage Users</span></a>
+            <a href="manage-routes.html" class="sidebar-nav-item active"><i>🛣️</i> <span>Manage Routes</span></a>
+            <a href="manage-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>Manage Vehicles</span></a>
+            <a href="manage-associations.html" class="sidebar-nav-item"><i>🏢</i> <span>Associations</span></a>
+            <a href="register-association.html" class="sidebar-nav-item"><i>➕</i> <span>Register Association</span></a>
+            <a href="system-logs.html" class="sidebar-nav-item"><i>📜</i> <span>System Logs</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1 class="page-title">Manage Routes</h1>
+                <button class="btn btn-primary" onclick="openAddRouteModal()">➕ Add New Route</button>
+            </div>
+
+            <!-- Filters -->
+            <div class="card">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <select id="status-filter" onchange="loadRoutes()" style="padding: 8px; border-radius: 8px;">
+                        <option value="all">All Routes</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                    <input type="text" id="search-input" placeholder="Search by name or code..." style="padding: 8px; border-radius: 8px; width: 250px;">
+                    <button class="btn btn-primary" onclick="loadRoutes()">Search</button>
+                </div>
+            </div>
+
+            <!-- Routes Table -->
+            <div class="card">
+                <div class="table-responsive">
+                    <div id="routes-container">
+                        <div class="loading-spinner">Loading routes...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Route Modal -->
+    <div id="route-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add New Route</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="route-form">
+                <input type="hidden" id="route-id">
+                <div class="form-group"><label>Route Code *</label><input type="text" id="route-code" required></div>
+                <div class="form-group"><label>Route Name *</label><input type="text" id="route-name" required></div>
+                <div class="form-group"><label>Starting Point *</label><input type="text" id="starting-point" required></div>
+                <div class="form-group"><label>Ending Point *</label><input type="text" id="ending-point" required></div>
+                <div class="form-group"><label>Distance (km) *</label><input type="number" step="0.1" id="distance" required></div>
+                <div class="form-group"><label>Estimated Duration (minutes) *</label><input type="number" id="duration" required></div>
+                <div class="form-group"><label>Base Fare (TSh) *</label><input type="number" id="fare" required></div>
+                
+                <h4>Route Stops</h4>
+                <div id="stops-container"></div>
+                <div class="add-stop-row">
+                    <input type="text" id="new-stop-name" placeholder="Stop name">
+                    <input type="number" id="new-stop-minutes" placeholder="Minutes from start" style="width: 100px;">
+                    <button type="button" class="btn btn-sm" onclick="addStopToList()">+ Add</button>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Route</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Delete</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <p>Are you sure you want to delete this route? This action cannot be undone.</p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/admin.js?v=2"></script>
+    
+    <script>
+        let currentStops = [];
+        let deleteRouteId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireRole(['admin'])) return;
+            initCommon();
+            loadRoutes();
+        });
+
+        async function loadRoutes() {
+            const status = document.getElementById('status-filter').value;
+            const search = document.getElementById('search-input').value;
+            
+            let url = API_ENDPOINTS.getRoutes + '?status=' + status;
+            if (search) url += '&search=' + encodeURIComponent(search);
+            
+            const result = await apiRequest(url);
+            
+            if (result.success && result.data.routes) {
+                let html = '<table class="data-table"><thead><tr><th>Code</th><th>Route Name</th><th>Start → End</th><th>Distance</th><th>Fare</th><th>Status</th><th>Stops</th><th>Actions</th></tr></thead><tbody>';
+                
+                for (const route of result.data.routes) {
+                    const statusClass = route.status === 'active' ? 'badge-success' : (route.status === 'inactive' ? 'badge-danger' : 'badge-warning');
+                    html += `
+                        <tr>
+                            <td><strong>${route.route_code}</strong></td>
+                            <td>${route.route_name}</td>
+                            <td>${route.starting_point} → ${route.ending_point}</td>
+                            <td>${route.distance_km} km</td>
+                            <td>TSh ${route.base_fare}</td>
+                            <td><span class="badge ${statusClass}">${route.status}</span></td>
+                            <td><button class="btn btn-sm" onclick="viewStops(${route.route_id})">📋 View</button></td>
+                            <td>
+                                <button class="btn btn-sm" onclick="editRoute(${route.route_id})">✏️</button>
+                                <button class="btn btn-sm btn-danger" onclick="confirmDelete(${route.route_id})">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+                html += '</tbody></table>';
+                document.getElementById('routes-container').innerHTML = html || '<div>No routes found</div>';
+            } else {
+                document.getElementById('routes-container').innerHTML = '<div class="loading-spinner">No routes found</div>';
+            }
+        }
+
+        function openAddRouteModal() {
+            document.getElementById('modal-title').textContent = 'Add New Route';
+            document.getElementById('route-form').reset();
+            document.getElementById('route-id').value = '';
+            currentStops = [];
+            renderStopsList();
+            document.getElementById('route-modal').style.display = 'flex';
+        }
+
+        async function editRoute(routeId) {
+            const result = await apiRequest(`${API_ENDPOINTS.getRouteDetails}?route_id=${routeId}`);
+            if (result.success && result.data) {
+                document.getElementById('modal-title').textContent = 'Edit Route';
+                document.getElementById('route-id').value = result.data.route_id;
+                document.getElementById('route-code').value = result.data.route_code;
+                document.getElementById('route-name').value = result.data.route_name;
+                document.getElementById('starting-point').value = result.data.starting_point;
+                document.getElementById('ending-point').value = result.data.ending_point;
+                document.getElementById('distance').value = result.data.distance_km;
+                document.getElementById('duration').value = result.data.estimated_duration_minutes;
+                document.getElementById('fare').value = result.data.base_fare;
+                
+                currentStops = result.data.stops || [];
+                renderStopsList();
+                document.getElementById('route-modal').style.display = 'flex';
+            }
+        }
+
+        function addStopToList() {
+            const stopName = document.getElementById('new-stop-name').value.trim();
+            const minutes = parseInt(document.getElementById('new-stop-minutes').value);
+            
+            if (!stopName) {
+                showToast('Please enter stop name', 'error');
+                return;
+            }
+            
+            currentStops.push({
+                stop_name: stopName,
+                stop_order: currentStops.length + 1,
+                estimated_arrival_minutes: minutes || 0
+            });
+            
+            document.getElementById('new-stop-name').value = '';
+            document.getElementById('new-stop-minutes').value = '';
+            renderStopsList();
+        }
+
+        function removeStop(index) {
+            currentStops.splice(index, 1);
+            // Reorder stops
+            currentStops.forEach((stop, idx) => { stop.stop_order = idx + 1; });
+            renderStopsList();
+        }
+
+        function renderStopsList() {
+            const container = document.getElementById('stops-container');
+            if (currentStops.length === 0) {
+                container.innerHTML = '<div class="route-stops" style="color:#666;">No stops added yet. Add stops below.</div>';
+                return;
+            }
+            
+            let html = '<div class="route-stops">';
+            for (let i = 0; i < currentStops.length; i++) {
+                html += `
+                    <div class="stop-item">
+                        <div>
+                            <span class="stop-name">${i+1}. ${currentStops[i].stop_name}</span>
+                            <span class="stop-order"> (${currentStops[i].estimated_arrival_minutes || 0} min)</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeStop(${i})">Remove</button>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        document.getElementById('route-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const routeData = {
+                route_code: document.getElementById('route-code').value,
+                route_name: document.getElementById('route-name').value,
+                starting_point: document.getElementById('starting-point').value,
+                ending_point: document.getElementById('ending-point').value,
+                distance_km: parseFloat(document.getElementById('distance').value),
+                estimated_duration_minutes: parseInt(document.getElementById('duration').value),
+                base_fare: parseFloat(document.getElementById('fare').value),
+                stops: currentStops
+            };
+            
+            const routeId = document.getElementById('route-id').value;
+            let result;
+            
+            if (routeId) {
+                routeData.route_id = routeId;
+                result = await apiRequest(API_ENDPOINTS.updateRoute, 'POST', routeData);
+            } else {
+                result = await apiRequest(API_ENDPOINTS.addRoute, 'POST', routeData);
+            }
+            
+            if (result.success) {
+                showToast(routeId ? 'Route updated successfully' : 'Route added successfully', 'success');
+                closeModal();
+                loadRoutes();
+            } else {
+                showToast(result.message, 'error');
+            }
+        });
+
+        function confirmDelete(routeId) {
+            deleteRouteId = routeId;
+            document.getElementById('delete-modal').style.display = 'flex';
+        }
+
+        document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+            if (deleteRouteId) {
+                const result = await apiRequest(API_ENDPOINTS.deleteRoute, 'POST', { route_id: deleteRouteId });
+                if (result.success) {
+                    showToast('Route deleted successfully', 'success');
+                    closeDeleteModal();
+                    loadRoutes();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            }
+        });
+
+        function viewStops(routeId) {
+            window.location.href = `route-details.html?route_id=${routeId}`;
+        }
+
+        function closeModal() {
+            document.getElementById('route-modal').style.display = 'none';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').style.display = 'none';
+            deleteRouteId = null;
+        }
+    </script>
+</body>
+</html>

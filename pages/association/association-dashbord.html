@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DalaChap - Association Dashboard</title>
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/style.css">
+    <link rel="stylesheet" href="../../dalachap_dashboard/assets/css/dashboard.css">
+    <style>
+        .vehicle-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+            transition: all 0.3s;
+        }
+        .vehicle-card:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .vehicle-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #28a745; box-shadow: 0 0 5px #28a745; }
+        .status-offline { background: #dc3545; }
+        .status-maintenance { background: #ffc107; }
+        .driver-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .driver-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .earning-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h3>🚌 DalaChap</h3></div>
+        <nav class="sidebar-nav">
+            <a href="association-dashbord.html" class="sidebar-nav-item active"><i>📊</i> <span>Dashboard</span></a>
+            <a href="my-vehicles.html" class="sidebar-nav-item"><i>🚐</i> <span>My Vehicles</span></a>
+            <a href="drivers.html" class="sidebar-nav-item"><i>👨‍✈️</i> <span>Drivers</span></a>
+            <a href="register-driver.html" class="sidebar-nav-item"><i>➕</i> <span>Register Driver</span></a>
+            <a href="trip-history.html" class="sidebar-nav-item"><i>📅</i> <span>Trip History</span></a>
+            <a href="reports.html" class="sidebar-nav-item"><i>📊</i> <span>Reports</span></a>
+            <a href="#" class="sidebar-nav-item" id="logout-btn"><i>🚪</i> <span>Logout</span></a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <button class="menu-toggle" id="sidebar-toggle">☰</button>
+            <div class="header-right">
+                <div class="notification-icon">🔔<span class="notification-badge" id="notification-badge">0</span>
+                    <div class="notification-dropdown" id="notifications-dropdown"></div>
+                </div>
+                <div class="user-profile"><div class="user-avatar" id="user-avatar">A</div></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <h1 class="page-title">Association Dashboard</h1>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-info"><h3 id="total-vehicles">--</h3><p>Total Vehicles</p></div><div class="stat-icon">🚐</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="active-vehicles">--</h3><p>Active Now</p></div><div class="stat-icon">✅</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="total-drivers">--</h3><p>Registered Drivers</p></div><div class="stat-icon">👨‍✈️</div></div>
+                <div class="stat-card"><div class="stat-info"><h3 id="today-trips">--</h3><p>Trips Today</p></div><div class="stat-icon">📅</div></div>
+            </div>
+
+            <!-- Earnings Summary -->
+            <div class="stats-grid">
+                <div class="earning-summary">
+                    <h3>💰 Today's Earnings</h3>
+                    <div style="font-size: 36px; font-weight: bold;" id="today-earnings">TSh 0</div>
+                    <div style="margin-top: 10px;">Estimated from active trips</div>
+                </div>
+                <div class="card">
+                    <h3>📈 Performance Summary</h3>
+                    <div id="performance-stats">
+                        <div>Total Trips (This Month): <strong id="month-trips">--</strong></div>
+                        <div>Total Passengers: <strong id="total-passengers">--</strong></div>
+                        <div>Average Occupancy: <strong id="avg-occupancy">--</strong>%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Vehicles -->
+            <div class="card">
+                <h3>🚐 Active Vehicles</h3>
+                <div id="active-vehicles-list" style="max-height: 400px; overflow-y: auto;">
+                    <div class="loading-spinner">Loading vehicles...</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <h3>⚡ Quick Actions</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="window.location.href='my-vehicles.html'">➕ Register New Vehicle</button>
+                    <button class="btn btn-primary" onclick="window.location.href='drivers.html'">👨‍✈️ Add Driver</button>
+                    <button class="btn btn-primary" onclick="requestRouteAuthorization()">📋 Request Route Authorization</button>
+                    <button class="btn btn-primary" onclick="refreshDashboard()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <!-- Recent Alerts -->
+            <div class="card">
+                <h3>🚨 Recent Alerts & Notifications</h3>
+                <div id="recent-alerts">
+                    <div class="loading-spinner">Loading alerts...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Authorization Modal -->
+    <div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; border-radius: 12px; max-width: 500px; width: 90%; padding: 25px;">
+            <h3>Request Route Authorization</h3>
+            <form id="auth-form">
+                <div class="form-group"><label>Vehicle</label>
+                    <select id="auth-vehicle" required></select>
+                </div>
+                <div class="form-group"><label>Requested Route</label>
+                    <select id="auth-route" required></select>
+                </div>
+                <div class="form-group"><label>Reason</label>
+                    <textarea id="auth-reason" rows="3" placeholder="Why is this authorization needed?" required></textarea>
+                </div>
+                <div class="form-group"><label>Duration (hours)</label>
+                    <input type="number" id="auth-duration" value="4" min="1" max="24">
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeAuthModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="../../dalachap_dashboard/assets/js/config.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/auth.js?v=2"></script>
+    <script src="../../dalachap_dashboard/assets/js/common.js?v=2"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            requireRole(['association_leader', 'admin']);
+            initCommon();
+            loadDashboardStats();
+            loadActiveVehicles();
+            loadRecentAlerts();
+            
+            setInterval(() => {
+                loadDashboardStats();
+                loadActiveVehicles();
+            }, 30000);
+        });
+        
+        async function loadDashboardStats() {
+            const result = await apiRequest(API_ENDPOINTS.associationDashboard);
+            
+            if (result.success && result.data) {
+                document.getElementById('total-vehicles').textContent = result.data.stats?.total_vehicles || 0;
+                document.getElementById('active-vehicles').textContent = result.data.stats?.active_vehicles || 0;
+                document.getElementById('total-drivers').textContent = result.data.stats?.total_drivers || 0;
+                document.getElementById('today-trips').textContent = result.data.stats?.today_trips || 0;
+                document.getElementById('today-earnings').textContent = `TSh ${result.data.stats?.today_earnings?.toLocaleString() || 0}`;
+                document.getElementById('month-trips').textContent = result.data.stats?.month_trips || 0;
+                document.getElementById('total-passengers').textContent = result.data.stats?.total_passengers || 0;
+                document.getElementById('avg-occupancy').textContent = result.data.stats?.avg_occupancy || 0;
+            }
+        }
+        
+        async function loadActiveVehicles() {
+            const result = await apiRequest(API_ENDPOINTS.getAssociationVehicles);
+            
+            if (result.success && result.data.vehicles) {
+                let activeVehicles = result.data.vehicles.filter(v => v.status === 'active');
+                
+                if (activeVehicles.length > 0) {
+                    let html = '';
+                    for (const vehicle of activeVehicles) {
+                        const onlineStatus = vehicle.current_latitude ? 'status-online' : 'status-offline';
+                        const onlineText = vehicle.current_latitude ? 'Online' : 'Offline';
+                        
+                        html += `
+                            <div class="vehicle-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h4>🚐 ${vehicle.registration_number}</h4>
+                                        <div><span class="vehicle-status ${onlineStatus}"></span> ${onlineText}</div>
+                                        <div>👨‍✈️ Driver: ${vehicle.driver_name || 'Not assigned'}</div>
+                                        <div>📍 ${vehicle.current_location || 'Location unknown'}</div>
+                                    </div>
+                                    <div>
+                                        <span class="status-badge status-active">Active</span>
+                                        <button class="btn btn-sm" onclick="viewVehicleLocation(${vehicle.vehicle_id})" style="margin-top: 8px;">📍 Track</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    document.getElementById('active-vehicles-list').innerHTML = html;
+                } else {
+                    document.getElementById('active-vehicles-list').innerHTML = '<div style="padding: 20px; text-align: center;">No active vehicles</div>';
+                }
+            } else {
+                document.getElementById('active-vehicles-list').innerHTML = '<div>Unable to load vehicles</div>';
+            }
+        }
+        
+        async function loadRecentAlerts() {
+            const result = await apiRequest(API_ENDPOINTS.getNotifications + '?limit=10');
+            
+            if (result.success && result.data.notifications) {
+                let html = '';
+                for (const notif of result.data.notifications) {
+                    html += `
+                        <div class="alert-item ${notif.is_read ? 'alert-resolved' : ''}">
+                            <div><strong>${notif.title}</strong></div>
+                            <div>${notif.message}</div>
+                            <div style="font-size: 12px; color: #666;">${timeAgo(notif.created_at)}</div>
+                        </div>
+                    `;
+                }
+                document.getElementById('recent-alerts').innerHTML = html || '<div>No recent alerts</div>';
+            } else {
+                document.getElementById('recent-alerts').innerHTML = '<div>No recent alerts</div>';
+            }
+        }
+        
+        async function requestRouteAuthorization() {
+            // Load vehicles and routes for dropdown
+            const vehiclesResult = await apiRequest(API_ENDPOINTS.getAssociationVehicles);
+            const routesResult = await apiRequest(API_ENDPOINTS.getRoutes);
+            
+            if (vehiclesResult.success && routesResult.success) {
+                let vehicleHtml = '';
+                for (const vehicle of vehiclesResult.data.vehicles) {
+                    vehicleHtml += `<option value="${vehicle.vehicle_id}">${vehicle.registration_number}</option>`;
+                }
+                
+                let routeHtml = '';
+                for (const route of routesResult.data.routes) {
+                    routeHtml += `<option value="${route.route_id}">${route.route_name}</option>`;
+                }
+                
+                document.getElementById('auth-vehicle').innerHTML = vehicleHtml;
+                document.getElementById('auth-route').innerHTML = routeHtml;
+                document.getElementById('auth-modal').style.display = 'flex';
+            }
+        }
+        
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                vehicle_id: document.getElementById('auth-vehicle').value,
+                temporary_route_id: document.getElementById('auth-route').value,
+                reason: document.getElementById('auth-reason').value,
+                duration_hours: parseInt(document.getElementById('auth-duration').value)
+            };
+            
+            const result = await apiRequest(API_ENDPOINTS.requestAuth, 'POST', data);
+            
+            if (result.success) {
+                showToast('Authorization request submitted successfully', 'success');
+                closeAuthModal();
+            } else {
+                showToast(result.message, 'error');
+            }
+        });
+        
+        function viewVehicleLocation(vehicleId) {
+            window.location.href = `vehicle-tracking.html?vehicle_id=${vehicleId}`;
+        }
+        
+        function closeAuthModal() {
+            document.getElementById('auth-modal').style.display = 'none';
+            document.getElementById('auth-form').reset();
+        }
+        
+        function refreshDashboard() {
+            loadDashboardStats();
+            loadActiveVehicles();
+            loadRecentAlerts();
+            showToast('Dashboard refreshed', 'success');
+        }
+    </script>
+</body>
+</html>
