@@ -7,7 +7,7 @@
 class Database {
     private $host = "localhost";
     private $username = "root";
-    private $password = "";
+    private $password = "Theresia@123";
     private $database = "dalachap_db";
     private $connection;
 
